@@ -36,7 +36,7 @@ class PurePursuitLocal(Node):
 
     def joy_cb(self, msg: Joy):
         if msg.axes[7] == 1.0:
-            if self.cnt != 5.0:
+            if self.cnt != 10.0:
                 self.cnt += 0.5
         elif msg.axes[7] == -1.0:
             if self.cnt != 1.0:
