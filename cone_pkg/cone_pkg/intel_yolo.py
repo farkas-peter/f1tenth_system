@@ -371,6 +371,7 @@ class RealSenseNode(Node):
 
             cone_array.markers.append(cone)
         
+        """
         for point in cones:
             if point[0] == 0 and point[1] == 0.037 and point[2] == 0:
                 continue
@@ -411,7 +412,8 @@ class RealSenseNode(Node):
             text.lifetime = Duration(seconds=0.1).to_msg()
 
             cone_array.markers.append(text)
-
+        """
+        
         for i,half_point in enumerate(half_points):
             if half_point[0] == 0 and half_point[1] == 0 and half_point[2] == 0:
                 continue
