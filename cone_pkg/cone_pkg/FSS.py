@@ -38,8 +38,8 @@ class RealSenseNode(Node):
         self.margin = 0.1
         self.min_lookahead = 1.0
         self.def_lookahead = 2.0
-        self.max_lookahead = 3.0
-        self.safe_dist = 2.0
+        self.max_lookahead = 2.5
+        self.safe_dist = 2.5
 
         self.bridge = CvBridge()
         
