@@ -200,6 +200,18 @@ class JoyTeleopTopicCommand(JoyTeleopCommand):
 
         last_active = self.active
         self.update_active_from_buttons_and_axes(joy_state)
+
+        if last_active and not self.active:
+            msg = self.topic_type()
+
+            if hasattr(msg, 'header'):
+                msg.header.stamp = node.get_clock().now().to_msg()
+            
+            msg.drive.speed = 0.0
+            msg.drive.steering_angle = 0.0
+            self.pub.publish(msg)
+            return
+
         if not self.active:
             return
         if self.msg_value is not None and last_active == self.active:
