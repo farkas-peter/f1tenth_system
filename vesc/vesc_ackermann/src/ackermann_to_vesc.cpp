@@ -50,11 +50,14 @@ AckermannToVesc::AckermannToVesc(const rclcpp::NodeOptions & options)
   // get conversion parameters
   speed_to_erpm_gain_ = declare_parameter("speed_to_erpm_gain").get<double>();
   speed_to_erpm_offset_ = declare_parameter("speed_to_erpm_offset").get<double>();
+  speed_to_current_gain_ = declare_parameter("speed_to_current_gain").get<double>();
+  speed_to_current_offset_ = declare_parameter("speed_to_current_offset").get<double>();
   steering_to_servo_gain_ = declare_parameter("steering_angle_to_servo_gain").get<double>();
   steering_to_servo_offset_ = declare_parameter("steering_angle_to_servo_offset").get<double>();
 
   // create publishers to vesc electric-RPM (speed) and servo commands
   erpm_pub_ = create_publisher<Float64>("commands/motor/speed", 10);
+  current_pub_ = create_publisher<Float64>("commands/motor/current", 10);
   servo_pub_ = create_publisher<Float64>("commands/servo/position", 10);
 
   // subscribe to ackermann topic
@@ -68,13 +71,17 @@ void AckermannToVesc::ackermannCmdCallback(const AckermannDriveStamped::SharedPt
   Float64 erpm_msg;
   erpm_msg.data = speed_to_erpm_gain_ * cmd->drive.speed + speed_to_erpm_offset_;
 
+  Float64 current_msg;
+  current_msg.data = speed_to_current_gain_ * cmd->drive.speed + speed_to_current_offset_;
+
   // calc steering angle (servo)
   Float64 servo_msg;
   servo_msg.data = steering_to_servo_gain_ * cmd->drive.steering_angle + steering_to_servo_offset_;
 
   // publish
   if (rclcpp::ok()) {
-    erpm_pub_->publish(erpm_msg);
+    //erpm_pub_->publish(erpm_msg);
+    current_pub_->publish(current_msg);
     servo_pub_->publish(servo_msg);
   }
 }
