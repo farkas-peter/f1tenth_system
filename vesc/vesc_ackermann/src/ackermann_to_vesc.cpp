@@ -69,7 +69,17 @@ void AckermannToVesc::ackermannCmdCallback(const AckermannDriveStamped::SharedPt
 {
   // calc vesc electric RPM (speed)
   Float64 erpm_msg;
-  erpm_msg.data = speed_to_erpm_gain_ * cmd->drive.speed + speed_to_erpm_offset_;
+  double raw_input = cmd->drive.speed;
+  double nonlinear_input;
+  if (raw_input < 0) {
+    nonlinear_input = -(std::pow(-raw_input, 0.3));
+  }
+  else {
+    nonlinear_input = std::pow(raw_input, 0.3);
+  }
+  erpm_msg.data = speed_to_erpm_gain_ * nonlinear_input + speed_to_erpm_offset_;
+
+  //erpm_msg.data = speed_to_erpm_gain_ * cmd->drive.speed + speed_to_erpm_offset_;
 
   Float64 current_msg;
   current_msg.data = speed_to_current_gain_ * cmd->drive.speed + speed_to_current_offset_;
@@ -80,8 +90,8 @@ void AckermannToVesc::ackermannCmdCallback(const AckermannDriveStamped::SharedPt
 
   // publish
   if (rclcpp::ok()) {
-    //erpm_pub_->publish(erpm_msg);
-    current_pub_->publish(current_msg);
+    erpm_pub_->publish(erpm_msg);
+    //current_pub_->publish(current_msg);
     servo_pub_->publish(servo_msg);
   }
 }
