@@ -200,18 +200,22 @@ class JoyTeleopTopicCommand(JoyTeleopCommand):
 
         last_active = self.active
         self.update_active_from_buttons_and_axes(joy_state)
-
+        
         if last_active and not self.active:
             msg = self.topic_type()
+            if hasattr(msg, 'data'):
+                msg.data = False
 
             if hasattr(msg, 'header'):
                 msg.header.stamp = node.get_clock().now().to_msg()
             
-            msg.drive.speed = 0.0
-            msg.drive.steering_angle = 0.0
+            if hasattr(msg, 'drive'):
+                msg.drive.speed = 0.0
+                msg.drive.steering_angle = 0.0
+
             self.pub.publish(msg)
             return
-
+        
         if not self.active:
             return
         if self.msg_value is not None and last_active == self.active:
@@ -256,17 +260,21 @@ class JoyTeleopTopicCommand(JoyTeleopCommand):
         # If there is a stamp field, fill it with now().
         if hasattr(msg, 'header'):
             msg.header.stamp = node.get_clock().now().to_msg()
+        
+        if joy_state.buttons[2] == 1:
+            msg.data = True
 
-        if joy_state.axes[5] == 1.0:
-            #brake
-            msg.drive.speed = (joy_state.axes[2] -1.0) * 10.0
-        elif joy_state.axes[2] == 1.0:
-            #throttle
-            msg.drive.speed = (joy_state.axes[5] -1.0) * -10.0
+        if hasattr(msg, 'drive'):
+            if joy_state.axes[5] == 1.0:
+                #brake
+                msg.drive.speed = (joy_state.axes[2] -1.0) * 10.0
+            elif joy_state.axes[2] == 1.0:
+                #throttle
+                msg.drive.speed = (joy_state.axes[5] -1.0) * -10.0
     
-        elif joy_state.axes[5] != 1.0 and joy_state.axes[2] != 1.0:
-            msg.drive.speed = 0.0
-
+            elif joy_state.axes[5] != 1.0 and joy_state.axes[2] != 1.0:
+                msg.drive.speed = 0.0
+        
         self.pub.publish(msg)
 
 
