@@ -129,9 +129,14 @@ def generate_launch_description():
     drive_publisher_node = Node(
     package='f1tenth_stack',
     executable='drive_publisher',
-    name='drive_publisher_node',
+    name='drive_publisher_node'
     )
-
+    intel_yolo_node = Node(
+    package='f1tenth_stack',
+    executable='intel_yolo',
+    name='intel_yolo_node'
+    )
+    
     # finalize
     ld.add_action(joy_node)
     ld.add_action(joy_teleop_node)
@@ -143,5 +148,6 @@ def generate_launch_description():
     ld.add_action(ackermann_mux_node)
     ld.add_action(static_tf_node)
     ld.add_action(drive_publisher_node)
+    ld.add_action(intel_yolo_node)
 
     return ld

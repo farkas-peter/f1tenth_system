@@ -26,7 +26,8 @@ setup(
         'console_scripts': [
             'throttle_interpolator = f1tenth_stack.throttle_interpolator:main',
             'tf_publisher = f1tenth_stack.tf_publisher:main',
-            'drive_publisher = f1tenth_stack.drive_publisher:main'
+            'drive_publisher = f1tenth_stack.drive_publisher:main',
+            'intel_yolo = f1tenth_stack.intel_yolo:main'
         ],
     },
 )
