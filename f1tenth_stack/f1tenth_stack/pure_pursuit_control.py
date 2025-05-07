@@ -11,7 +11,7 @@ class PurePursuitLocal(Node):
         super().__init__('pure_pursuit_local_node')
 
         self.lookahead_distance = 1.0
-        self.constant_speed = 4.0
+        self.constant_speed = 2.0
 
         self.target_point = None
 
