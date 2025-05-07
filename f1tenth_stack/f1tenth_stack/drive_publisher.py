@@ -20,7 +20,7 @@ class AutonomousNode(Node):
     def timer_cb(self):
         if self.enabled:
             msg = AckermannDriveStamped()
-            msg.drive.speed = 5.0
+            msg.drive.speed = 4.0
             #autonomous_control
             self.publisher.publish(msg)
 

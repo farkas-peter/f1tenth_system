@@ -23,7 +23,7 @@ class RealSenseNode(Node):
         
         # ROS 2 Publisher
         self.det_image_pub = self.create_publisher(Image, "/ultralytics/detection/image", 10)
-        self.point_pub = self.create_publisher(Point,"/cone_gate",10)
+        self.point_pub = self.create_publisher(Point,"/target_point",10)
         
         #CLI:
         #yolo export model=Cone.pt format=engine imgsz=640#
@@ -99,7 +99,7 @@ class RealSenseNode(Node):
                 depth_intrin = aligned_depth_frame.profile.as_video_stream_profile().intrinsics
                 result = rs.rs2_deproject_pixel_to_point(depth_intrin, [xyd[0], xyd[1]], xyd[2])
                 x_map = round(result[2],3)
-                y_map = round(-result[0],3)
+                y_map = round(-result[0],3) + 0.037
                 z_map = round(-result[1],3)
                 current_dataset.append([x_map,y_map,z_map,index,0,0])
 
@@ -256,8 +256,9 @@ class RealSenseNode(Node):
         pygame.draw.line(self.screen, [128,128,128], (self.screen_width//2, 20), (40, 400), 2)
 
         #Half point drawing
-        green_x, green_y = self.transform_point(half_point[0], half_point[1])
-        pygame.draw.circle(self.screen,[0,128,0], (green_y, green_x), 4)
+        if half_point != [0,0,0]:
+            green_x, green_y = self.transform_point(half_point[0], half_point[1])
+            pygame.draw.circle(self.screen,[0,128,0], (green_y, green_x), 4)
 
         #Cones drawing
         for point in dataset:

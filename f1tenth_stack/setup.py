@@ -27,6 +27,7 @@ setup(
             'throttle_interpolator = f1tenth_stack.throttle_interpolator:main',
             'tf_publisher = f1tenth_stack.tf_publisher:main',
             'drive_publisher = f1tenth_stack.drive_publisher:main',
+            'pure_pursuit_control = f1tenth_stack.pure_pursuit_control:main',
             'intel_yolo = f1tenth_stack.intel_yolo:main'
         ],
     },
