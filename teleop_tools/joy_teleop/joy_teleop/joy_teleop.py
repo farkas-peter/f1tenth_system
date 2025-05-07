@@ -265,10 +265,10 @@ class JoyTeleopTopicCommand(JoyTeleopCommand):
             msg.data = True
 
         if hasattr(msg, 'drive'):
-            if joy_state.axes[5] == 1.0:
+            if joy_state.axes[5] == 1.0 and joy_state.axes[2] < 0.8:
                 #brake
                 msg.drive.speed = (joy_state.axes[2] -1.0) * 10.0
-            elif joy_state.axes[2] == 1.0:
+            elif joy_state.axes[2] == 1.0 and joy_state.axes[5] < 0.8:
                 #throttle
                 msg.drive.speed = (joy_state.axes[5] -1.0) * -10.0
     

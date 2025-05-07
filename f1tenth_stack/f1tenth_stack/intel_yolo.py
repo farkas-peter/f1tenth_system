@@ -1,7 +1,9 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.duration import Duration
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped, Point
+from visualization_msgs.msg import MarkerArray,Marker
 import pyrealsense2 as rs
 import numpy as np
 import cv2
@@ -24,7 +26,8 @@ class RealSenseNode(Node):
         # ROS 2 Publisher
         self.det_image_pub = self.create_publisher(Image, "/ultralytics/detection/image", 10)
         self.point_pub = self.create_publisher(Point,"/target_point",10)
-        
+        self.rviz_pub = self.create_publisher(MarkerArray,"/rviz",10)
+
         #CLI:
         #yolo export model=Cone.pt format=engine imgsz=640#
         
@@ -32,6 +35,7 @@ class RealSenseNode(Node):
         self.trt_model = YOLO('/workspace/src/ros2_f1tenth/f1tenth/object_detection/Cone.engine')
         
         #pygame
+        """
         pygame.init()
         self.colors = {}
         self.running = True
@@ -42,7 +46,7 @@ class RealSenseNode(Node):
         self.offset_x, self.offset_y = 0,320
         self.robot_triangle_coordinates = [(self.screen_width//2-10, 0),(self.screen_width//2+10, 0),(self.screen_width//2, 20)]
         #----
-
+        """
         #Stereo Camera
         self.pipeline = rs.pipeline()
         config = rs.config()
@@ -125,9 +129,9 @@ class RealSenseNode(Node):
                 point_to_pub.z = float(half_point[2])
                 self.point_pub.publish(point_to_pub)
 
-            self.render_map(filtered_dataset, half_point)
-
+            self.marker_creator(filtered_dataset,half_point)
             """
+            self.render_map(filtered_dataset, half_point)
             self.get_logger().info("Mapping:")
             self.get_logger().info(str(filtered_dataset))
             self.get_logger().info("Half point:")
@@ -239,6 +243,114 @@ class RealSenseNode(Node):
         dy = round((p1[1]+p2[1]) /2,3)
         dz = round((p1[2]+p2[2]) /2,3)
         return (dx,dy,dz)
+    
+    def marker_creator(self, cones,half_point):
+        cone_array = MarkerArray()
+        
+        for point in cones:
+
+            cone = Marker()
+
+            #Pont letrehozasa
+            cone.header.frame_id = "map"
+            cone.ns = "cone"
+            cone.id = int(point[3])
+            cone.type = Marker.SPHERE
+            cone.action = Marker.ADD
+
+            #Pozicio
+            cone.pose.position.x = point[0]
+            cone.pose.position.y = point[1]
+            cone.pose.position.z = point[2]
+
+            cone.pose.orientation.x = 0.0
+            cone.pose.orientation.y = 0.0
+            cone.pose.orientation.z = 0.0
+            cone.pose.orientation.w = 1.0 
+
+            cone.scale.x = 0.1
+            cone.scale.y = 0.1
+            cone.scale.z = 0.1
+            
+            #szin
+            cone.color.a = 1.0
+            cone.color.r = 255.0/255.0
+            cone.color.g = 165.0/255.0
+            cone.color.b = 0.0
+
+            cone.lifetime = Duration(seconds=0.5).to_msg()
+
+            cone_array.markers.append(cone)
+
+
+        half_marker = Marker()
+
+        #Pont letrehozasa
+        half_marker.header.frame_id = "map"
+        half_marker.ns = "half_point"
+        half_marker.id = 98
+        half_marker.type = Marker.SPHERE
+        half_marker.action = Marker.ADD
+
+        #Pozicio
+        half_marker.pose.position.x = float(half_point[0])
+        half_marker.pose.position.y = float(half_point[1])
+        half_marker.pose.position.z = float(half_point[2])
+
+        half_marker.pose.orientation.x = 0.0
+        half_marker.pose.orientation.y = 0.0
+        half_marker.pose.orientation.z = 0.0
+        half_marker.pose.orientation.w = 1.0 
+
+        half_marker.scale.x = 0.05
+        half_marker.scale.y = 0.05
+        half_marker.scale.z = 0.05
+            
+        #szin
+        half_marker.color.a = 1.0
+        half_marker.color.r = 0.0
+        half_marker.color.g = 1.0
+        half_marker.color.b = 0.0
+
+        half_marker.lifetime = Duration(seconds=0.5).to_msg()
+
+        cone_array.markers.append(half_marker)
+
+        robot_marker = Marker()
+
+        #Pont letrehozasa
+        robot_marker.header.frame_id = "map"
+        robot_marker.ns = "robot"
+        robot_marker.id = 99
+        robot_marker.type = Marker.CUBE
+        robot_marker.action = Marker.ADD
+
+        #Pozicio
+        robot_marker.pose.position.x = 0.0
+        robot_marker.pose.position.y = 0.0
+        robot_marker.pose.position.z = 0.0
+
+        robot_marker.pose.orientation.x = 0.0
+        robot_marker.pose.orientation.y = 0.0
+        robot_marker.pose.orientation.z = 0.0
+        robot_marker.pose.orientation.w = 1.0 
+
+        robot_marker.scale.x = 0.2
+        robot_marker.scale.y = 0.2
+        robot_marker.scale.z = 0.3
+            
+        #szin
+        robot_marker.color.a = 1.0
+        robot_marker.color.r = 1.0
+        robot_marker.color.g = 0.0
+        robot_marker.color.b = 0.0
+
+        robot_marker.lifetime = Duration(seconds=0.5).to_msg()
+
+        cone_array.markers.append(robot_marker)
+
+
+        self.rviz_pub.publish(cone_array)
 
     def render_map(self, dataset,half_point):
 
