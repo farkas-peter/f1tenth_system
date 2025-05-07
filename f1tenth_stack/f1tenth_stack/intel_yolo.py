@@ -17,9 +17,9 @@ class RealSenseNode(Node):
         #Object tracking parameters
         self.prev_dataset = None
         self.match_radius = 0.1 #object tracking radius
-        self.min_frame = 5 #appearance protection
-        self.max_frame = 5 #disapearance protection
-        self.sensing_depth = 0.3 #distance between gates
+        self.min_frame = 0 #appearance protection
+        self.max_frame = 0 #disapearance protection
+        self.sensing_depth = 0.15 #distance between gates
 
         self.bridge = CvBridge()
         

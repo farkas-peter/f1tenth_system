@@ -44,7 +44,7 @@ class PurePursuitLocal(Node):
             y = self.target_point.y
             distance = sqrt(x ** 2 + y ** 2)
 
-            if distance < 0.1:
+            if distance < 0.01:
                 self.get_logger().info('Cél túl közel, nem vezérelünk.')
                 return
 
@@ -54,7 +54,7 @@ class PurePursuitLocal(Node):
 
             drive_msg = AckermannDriveStamped()
             drive_msg.drive.speed = self.constant_speed
-            drive_msg.drive.steering_angle = steering_angle
+            drive_msg.drive.steering_angle = steering_angle*0.34
 
             self.drive_pub.publish(drive_msg)
 
