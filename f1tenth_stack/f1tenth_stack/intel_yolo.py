@@ -18,8 +18,12 @@ class RealSenseNode(Node):
         self.prev_dataset = None
         self.match_radius = 0.1 #object tracking radius
         self.min_frame = 0 #appearance protection
-        self.max_frame = 0 #disapearance protection
+        self.max_frame = 5 #disapearance protection
         self.sensing_depth = 0.15 #distance between gates
+        #New parameters
+        self.max_distance = 0.6
+        self.min_angle = 60
+        self.max_angle = 120
 
         self.bridge = CvBridge()
         
@@ -95,8 +99,9 @@ class RealSenseNode(Node):
                     y = round(y)
                     dist = aligned_depth_frame.get_distance(x, y)
                     center_points.append((x,y,round(dist,2)))
-        
-            self.det_image_pub.publish(self.bridge.cv2_to_imgmsg(det_annotated, encoding="bgr8"))
+
+            scaled_image = cv2.resize(det_annotated, (640, 360), interpolation=cv2.INTER_AREA)
+            self.det_image_pub.publish(self.bridge.cv2_to_imgmsg(scaled_image, encoding="bgr8"))
             
             #Pixels to 3D coordinates
             for index, xyd in enumerate(center_points):
@@ -115,21 +120,26 @@ class RealSenseNode(Node):
             #Appearance filtering
             filtered_dataset = [item for item in self.prev_dataset if item[4] >= self.min_frame]
 
-            half_point = None
+            half_points = []
             if len(filtered_dataset) >= 2:
-                half_point = self.half_point_calc(filtered_dataset)
+                #half_point = self.half_point_calc(filtered_dataset)
+                xyz = [[x, y,z] for x, y, z, _ ,_,_ in filtered_dataset]
+                half_points = self.gate_finding(xyz)
             else:
-                half_point = [0,0,0]
+                half_points = [[0,0,0]]
+
+            #self.get_logger().info(str(half_points))
 
             #half point publication
-            if half_point is not None:
-                point_to_pub = Point()
-                point_to_pub.x = float(half_point[0])
-                point_to_pub.y = float(half_point[1])
-                point_to_pub.z = float(half_point[2])
-                self.point_pub.publish(point_to_pub)
+            if half_points:
+                if half_points[0][0] != 0 and half_points[0][1] != 0 and half_points[0][2] != 0:
+                    point_to_pub = Point()
+                    point_to_pub.x = float(half_points[0][0])
+                    point_to_pub.y = float(half_points[0][1])
+                    point_to_pub.z = float(half_points[0][2])
+                    self.point_pub.publish(point_to_pub)
 
-            self.marker_creator(filtered_dataset,half_point)
+            self.marker_creator(filtered_dataset,half_points)
             """
             self.render_map(filtered_dataset, half_point)
             self.get_logger().info("Mapping:")
@@ -137,36 +147,79 @@ class RealSenseNode(Node):
             self.get_logger().info("Half point:")
             self.get_logger().info(str(half_point))
             """   
+    def gate_finding(self,cones):
+        pairs = []
+        used = set()
+
+        for i in range(len(cones)):
+            if i in used:
+                continue
+            for j in range(i + 1, len(cones)):
+                if j in used:
+                    continue
+
+                c1, c2 = np.array(cones[i][:2]), np.array(cones[j][:2])
+                dist = np.linalg.norm(c1 - c2)
+
+                if dist > self.max_distance:
+                    continue
+                if not self.is_gate_direction(c1, c2):
+                    continue
+
+                #pairs.append([i, j,0])
+                c1 = [c1[0],c1[1],cones[i][2]]
+                c2 = [c2[0],c2[1],cones[j][2]]
+                gate = self.mean_point_calc(c1,c2)
+                pairs.append(gate)
+                used.add(i)
+                used.add(j)
+                break  # csak egy párt keresünk egy bójához
+
+        if not pairs:
+            pairs = [[0,0,0]]
+
+        return pairs
     
+    def is_gate_direction(self,c1, c2):
+        v = c2 - c1
+        direction = np.array([1.0, 0.0])  # autó vízszintesen halad
+        angle = self.angle_between(v, direction)
+        return self.min_angle <= angle <= self.max_angle
+    
+    def angle_between(self,v1, v2):
+        unit_v1 = v1 / np.linalg.norm(v1)
+        unit_v2 = v2 / np.linalg.norm(v2)
+        dot_product = np.clip(np.dot(unit_v1, unit_v2), -1.0, 1.0)
+        angle_rad = np.arccos(dot_product)
+        return np.degrees(angle_rad)
+
+
+
     def half_point_calc(self, dataset):
         #Calculation of the first gate
         closest_point = None
         ref_dist = 10000
         del_index1 = 0
-        cone1_id = None
         for index, point in enumerate(dataset):
-            x,y,z,cid = point[0],point[1],point[2], point[3]
+            x,y,z = point[0],point[1],point[2]
             dist = self.distance((x,y,z),(0,0,0))
             if ref_dist >= dist:
                 ref_dist = dist
                 closest_point = [x,y,z]
                 del_index1 = index
-                cone1_id = cid
                 
         sec_closest_point = None
         ref_dist2 = 10000
-        cone2_id = None
         del_index2 = 0
         for index, point in enumerate(dataset):
             if index == del_index1:
                 continue
-            x,y,z,cid = point[0],point[1],point[2], point[3]
+            x,y,z = point[0],point[1],point[2]
             dist = self.distance((x,y,z),(0,0,0))
             if ref_dist2 >= dist:
                 ref_dist2 = dist
                 sec_closest_point = [x,y,z]
                 del_index2 = index
-                cone2_id = cid
 
         
         if (ref_dist+self.sensing_depth) >= ref_dist2 and (ref_dist-self.sensing_depth) <= ref_dist2:
@@ -179,7 +232,7 @@ class RealSenseNode(Node):
             for index, point in enumerate(dataset):
                 if index == del_index1 or index == del_index2:
                     continue
-                x,y,z,cid = point[0],point[1],point[2], point[3]
+                x,y,z = point[0],point[1],point[2]
                 dist = self.distance((x,y,z),(0,0,0))
                 if ref_dist3 >= dist:
                     ref_dist3 = dist
@@ -244,7 +297,7 @@ class RealSenseNode(Node):
         dz = round((p1[2]+p2[2]) /2,3)
         return (dx,dy,dz)
     
-    def marker_creator(self, cones,half_point):
+    def marker_creator(self, cones,half_points):
         cone_array = MarkerArray()
         
         for point in cones:
@@ -282,39 +335,39 @@ class RealSenseNode(Node):
 
             cone_array.markers.append(cone)
 
+        for i,half_point in enumerate(half_points):
+            half_marker = Marker()
 
-        half_marker = Marker()
+            #Pont letrehozasa
+            half_marker.header.frame_id = "map"
+            half_marker.ns = "half_point"
+            half_marker.id = 100+i
+            half_marker.type = Marker.SPHERE
+            half_marker.action = Marker.ADD
 
-        #Pont letrehozasa
-        half_marker.header.frame_id = "map"
-        half_marker.ns = "half_point"
-        half_marker.id = 98
-        half_marker.type = Marker.SPHERE
-        half_marker.action = Marker.ADD
+            #Pozicio
+            half_marker.pose.position.x = float(half_point[0])
+            half_marker.pose.position.y = float(half_point[1])
+            half_marker.pose.position.z = float(half_point[2])
 
-        #Pozicio
-        half_marker.pose.position.x = float(half_point[0])
-        half_marker.pose.position.y = float(half_point[1])
-        half_marker.pose.position.z = float(half_point[2])
+            half_marker.pose.orientation.x = 0.0
+            half_marker.pose.orientation.y = 0.0
+            half_marker.pose.orientation.z = 0.0
+            half_marker.pose.orientation.w = 1.0 
 
-        half_marker.pose.orientation.x = 0.0
-        half_marker.pose.orientation.y = 0.0
-        half_marker.pose.orientation.z = 0.0
-        half_marker.pose.orientation.w = 1.0 
-
-        half_marker.scale.x = 0.05
-        half_marker.scale.y = 0.05
-        half_marker.scale.z = 0.05
+            half_marker.scale.x = 0.05
+            half_marker.scale.y = 0.05
+            half_marker.scale.z = 0.05
             
-        #szin
-        half_marker.color.a = 1.0
-        half_marker.color.r = 0.0
-        half_marker.color.g = 1.0
-        half_marker.color.b = 0.0
+            #szin
+            half_marker.color.a = 1.0
+            half_marker.color.r = 0.0
+            half_marker.color.g = 1.0
+            half_marker.color.b = 0.0
 
-        half_marker.lifetime = Duration(seconds=0.5).to_msg()
+            half_marker.lifetime = Duration(seconds=0.5).to_msg()
 
-        cone_array.markers.append(half_marker)
+            cone_array.markers.append(half_marker)
 
         robot_marker = Marker()
 
