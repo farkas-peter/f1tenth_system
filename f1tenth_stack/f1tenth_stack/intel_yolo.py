@@ -21,7 +21,7 @@ class RealSenseNode(Node):
         self.max_frame = 5 #disapearance protection
         self.sensing_depth = 0.15 #distance between gates
         #New parameters
-        self.max_distance = 0.6
+        self.max_distance = 0.8
         self.min_angle = 60
         self.max_angle = 120
 
