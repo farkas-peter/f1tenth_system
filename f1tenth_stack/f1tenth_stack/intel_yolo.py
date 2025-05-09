@@ -304,28 +304,30 @@ class RealSenseNode(Node):
 
             cone = Marker()
 
-            #Pont letrehozasa
+            #Cones
             cone.header.frame_id = "map"
             cone.ns = "cone"
             cone.id = int(point[3])
             cone.type = Marker.SPHERE
             cone.action = Marker.ADD
 
-            #Pozicio
+            #Position
             cone.pose.position.x = point[0]
             cone.pose.position.y = point[1]
-            cone.pose.position.z = point[2]
+            cone.pose.position.z = point[2] + 0.1
 
+            #Orientation
             cone.pose.orientation.x = 0.0
             cone.pose.orientation.y = 0.0
             cone.pose.orientation.z = 0.0
             cone.pose.orientation.w = 1.0 
 
+            #Size
             cone.scale.x = 0.1
             cone.scale.y = 0.1
             cone.scale.z = 0.1
             
-            #szin
+            #Color
             cone.color.a = 1.0
             cone.color.r = 255.0/255.0
             cone.color.g = 165.0/255.0
@@ -338,28 +340,30 @@ class RealSenseNode(Node):
         for i,half_point in enumerate(half_points):
             half_marker = Marker()
 
-            #Pont letrehozasa
+            #Mid points
             half_marker.header.frame_id = "map"
             half_marker.ns = "half_point"
             half_marker.id = 100+i
             half_marker.type = Marker.SPHERE
             half_marker.action = Marker.ADD
 
-            #Pozicio
+            #Position
             half_marker.pose.position.x = float(half_point[0])
             half_marker.pose.position.y = float(half_point[1])
-            half_marker.pose.position.z = float(half_point[2])
+            half_marker.pose.position.z = float(half_point[2]) + 0.1
 
+            #Orientation
             half_marker.pose.orientation.x = 0.0
             half_marker.pose.orientation.y = 0.0
             half_marker.pose.orientation.z = 0.0
             half_marker.pose.orientation.w = 1.0 
 
+            #Size
             half_marker.scale.x = 0.05
             half_marker.scale.y = 0.05
             half_marker.scale.z = 0.05
             
-            #szin
+            #Color
             half_marker.color.a = 1.0
             half_marker.color.r = 0.0
             half_marker.color.g = 1.0
@@ -367,32 +371,35 @@ class RealSenseNode(Node):
 
             half_marker.lifetime = Duration(seconds=0.5).to_msg()
 
-            cone_array.markers.append(half_marker)
+            if half_point[0] != 0 and half_point[1] != 0 and half_point[2] != 0:
+                cone_array.markers.append(half_marker)
 
         robot_marker = Marker()
 
-        #Pont letrehozasa
+        #Car
         robot_marker.header.frame_id = "map"
         robot_marker.ns = "robot"
         robot_marker.id = 99
         robot_marker.type = Marker.CUBE
         robot_marker.action = Marker.ADD
 
-        #Pozicio
+        #Position
         robot_marker.pose.position.x = 0.0
         robot_marker.pose.position.y = 0.0
         robot_marker.pose.position.z = 0.0
 
+        #Orientation
         robot_marker.pose.orientation.x = 0.0
         robot_marker.pose.orientation.y = 0.0
         robot_marker.pose.orientation.z = 0.0
         robot_marker.pose.orientation.w = 1.0 
 
-        robot_marker.scale.x = 0.2
+        #Size
+        robot_marker.scale.x = 0.3
         robot_marker.scale.y = 0.2
-        robot_marker.scale.z = 0.3
+        robot_marker.scale.z = 0.15
             
-        #szin
+        #Color
         robot_marker.color.a = 1.0
         robot_marker.color.r = 1.0
         robot_marker.color.g = 0.0
