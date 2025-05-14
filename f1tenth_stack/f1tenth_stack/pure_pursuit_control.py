@@ -3,13 +3,15 @@ from rclpy.node import Node
 from geometry_msgs.msg import Point
 from ackermann_msgs.msg import AckermannDriveStamped
 from std_msgs.msg import Bool
+from sensor_msgs.msg import Joy
 from math import atan2, sqrt
+import numpy as np
 
 
 class PurePursuitLocal(Node):
     def __init__(self):
         super().__init__('pure_pursuit_local_node')
-
+        self.cnt = 1.0
         self.lookahead_distance = 1.0
         self.constant_speed = 2.0
 
@@ -17,6 +19,7 @@ class PurePursuitLocal(Node):
 
         self.enabled = False
         self.subscription = self.create_subscription(Bool, '/autonomous_enable', self.enable_cb, 10)
+        self.joy_sub =  self.create_subscription(Joy, '/joy', self.joy_cb, 10)
         self.create_subscription(Point, '/target_point', self.target_callback, 10)
         self.drive_pub = self.create_publisher(AckermannDriveStamped, '/drive', 10)
 
@@ -27,6 +30,14 @@ class PurePursuitLocal(Node):
 
         if not self.enabled:
             self.stop_vehicle()
+
+    def joy_cb(self, msg: Joy):
+        if msg.axes[7] == 1.0:
+            if self.cnt != 5.0:
+                self.cnt += 0.5
+        elif msg.axes[7] == -1.0:
+            if self.cnt != 1.0:
+                self.cnt -= 0.5
 
     def stop_vehicle(self):
         msg = AckermannDriveStamped()
@@ -51,10 +62,10 @@ class PurePursuitLocal(Node):
             # Pure Pursuit görbület alapú kormányzás
             curvature = (2 * y) / (distance ** 2)
             steering_angle = atan2(self.lookahead_distance * curvature, 1.0)
-
+            
             drive_msg = AckermannDriveStamped()
-            drive_msg.drive.speed = self.constant_speed
-            drive_msg.drive.steering_angle = steering_angle*0.34
+            drive_msg.drive.speed = self.constant_speed * self.cnt
+            drive_msg.drive.steering_angle = steering_angle*0.30
 
             self.drive_pub.publish(drive_msg)
 
