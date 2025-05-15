@@ -4,15 +4,15 @@ from geometry_msgs.msg import Point
 from ackermann_msgs.msg import AckermannDriveStamped
 from std_msgs.msg import Bool
 from sensor_msgs.msg import Joy
-from math import atan2, sqrt
-import numpy as np
+import math
 
 
 class PurePursuitLocal(Node):
     def __init__(self):
         super().__init__('pure_pursuit_local_node')
         self.cnt = 1.0
-        self.lookahead_distance = 1.0
+        self.lookahead_parameter = 1.1
+        self.wheelbase = 0.33
         self.constant_speed = 2.0
 
         self.target_point = None
@@ -53,19 +53,21 @@ class PurePursuitLocal(Node):
         if self.enabled:
             x = self.target_point.x
             y = self.target_point.y
-            distance = sqrt(x ** 2 + y ** 2)
+            distance = math.sqrt(x ** 2 + y ** 2)
 
             if distance < 0.01:
                 self.get_logger().info('Cél túl közel, nem vezérelünk.')
                 return
-
-            # Pure Pursuit görbület alapú kormányzás
-            curvature = (2 * y) / (distance ** 2)
-            steering_angle = atan2(self.lookahead_distance * curvature, 1.0)
+            
+            input_speed = self.constant_speed * self.cnt
+            lookahead_distance = (self.lookahead_parameter * input_speed) - (input_speed - 1.0)
+            alpha = math.atan2(y,x)
+            curvature = (2*math.sin(alpha))/(lookahead_distance)
+            steering_angle = math.atan(self.wheelbase*curvature)
             
             drive_msg = AckermannDriveStamped()
-            drive_msg.drive.speed = self.constant_speed * self.cnt
-            drive_msg.drive.steering_angle = steering_angle*0.30
+            drive_msg.drive.speed = input_speed
+            drive_msg.drive.steering_angle = steering_angle
 
             self.drive_pub.publish(drive_msg)
 
