@@ -28,9 +28,9 @@ class RealSenseNode(Node):
         self.bridge = CvBridge()
         
         # ROS 2 Publisher
-        self.det_image_pub = self.create_publisher(Image, "/ultralytics/detection/image", 10)
+        self.det_image_pub = self.create_publisher(Image, "/ultralytics/detection/image", 1)
         self.point_pub = self.create_publisher(Point,"/target_point",10)
-        self.rviz_pub = self.create_publisher(MarkerArray,"/rviz",10)
+        self.rviz_pub = self.create_publisher(MarkerArray,"/rviz",1)
 
         #CLI:
         #yolo export model=Cone.pt format=engine imgsz=640#
@@ -100,8 +100,9 @@ class RealSenseNode(Node):
                     dist = aligned_depth_frame.get_distance(x, y)
                     center_points.append((x,y,round(dist,2)))
 
-            scaled_image = cv2.resize(det_annotated, (640, 360), interpolation=cv2.INTER_AREA)
-            self.det_image_pub.publish(self.bridge.cv2_to_imgmsg(scaled_image, encoding="bgr8"))
+            scaled_image = cv2.resize(det_annotated, (320, 180), interpolation=cv2.INTER_AREA)
+            gray_scaled_image = cv2.cvtColor(scaled_image, cv2.COLOR_BGR2GRAY)
+            self.det_image_pub.publish(self.bridge.cv2_to_imgmsg(gray_scaled_image, encoding="mono8"))
             
             #Pixels to 3D coordinates
             for index, xyd in enumerate(center_points):
@@ -333,9 +334,48 @@ class RealSenseNode(Node):
             cone.color.g = 165.0/255.0
             cone.color.b = 0.0
 
-            cone.lifetime = Duration(seconds=0.5).to_msg()
+            cone.lifetime = Duration(seconds=0.1).to_msg()
 
             cone_array.markers.append(cone)
+        
+        for point in cones:
+
+            text = Marker()
+
+            #Cones
+            text.header.frame_id = "map"
+            text.ns = "ID_Text"
+            text.id = int(point[3]) * 100
+            text.type = Marker.TEXT_VIEW_FACING
+            text.text = f"#{point[3]}"
+
+            text.action = Marker.ADD
+
+            #Position
+            text.pose.position.x = point[0]
+            text.pose.position.y = point[1]
+            text.pose.position.z = point[2] + 0.25
+
+            #Orientation
+            text.pose.orientation.x = 0.0
+            text.pose.orientation.y = 0.0
+            text.pose.orientation.z = 0.0
+            text.pose.orientation.w = 1.0 
+
+            #Size
+            text.scale.x = 0.1
+            text.scale.y = 0.1
+            text.scale.z = 0.1
+            
+            #Color
+            text.color.a = 1.0
+            text.color.r = 1.0
+            text.color.g = 1.0
+            text.color.b = 1.0
+
+            text.lifetime = Duration(seconds=0.1).to_msg()
+
+            cone_array.markers.append(text)
 
         for i,half_point in enumerate(half_points):
             half_marker = Marker()
@@ -369,7 +409,7 @@ class RealSenseNode(Node):
             half_marker.color.g = 1.0
             half_marker.color.b = 0.0
 
-            half_marker.lifetime = Duration(seconds=0.5).to_msg()
+            half_marker.lifetime = Duration(seconds=0.1).to_msg()
 
             if half_point[0] != 0 and half_point[1] != 0 and half_point[2] != 0:
                 cone_array.markers.append(half_marker)
@@ -405,7 +445,7 @@ class RealSenseNode(Node):
         robot_marker.color.g = 0.0
         robot_marker.color.b = 0.0
 
-        robot_marker.lifetime = Duration(seconds=0.5).to_msg()
+        robot_marker.lifetime = Duration(seconds=0.1).to_msg()
 
         cone_array.markers.append(robot_marker)
 
