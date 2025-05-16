@@ -2,8 +2,8 @@
 
 Drivers onboard f1tenth race cars. This branch is under development for migration to ROS2. See the [documentation of F1TENTH](https://f1tenth.readthedocs.io/en/foxy_test/getting_started/firmware/index.html) on how to get started.
 
-## Deadman's switch
-On Logitech F-710 joysticks, the LB button is the deadman's switch for teleop, and the RB button is the deadman's switch for navigation. You can also remap buttons. See how on the readthedocs documentation.
+## Control
+On Logitech F-710 joysticks, in manual control mode: the RT button is the throttle, the LT button is the reverse, the left analog stick is the steering and the deadman's switch is the A button. In autonomous control mode the deadman's switch is the X button and the constans speed can be adjust with the up and down buttons.
 
 ## Topics
 
@@ -39,6 +39,8 @@ On Logitech F-710 joysticks, the LB button is the deadman's switch for teleop, a
 5. vesc_driver_node
 6. urg_node
 7. ackermann_mux
+8. intel_yolo
+9. pure_pursuit_control
 
 ## Parameters and topics for dependencies
 
@@ -119,3 +121,7 @@ On Logitech F-710 joysticks, the LB button is the deadman's switch for teleop, a
 3. Subscribes to:
    - topic described in rpm_input_topic
    - topic described in servo_input_topic
+
+### Graph of nodes
+
+![plot](utility/rqt_graph_final.png)

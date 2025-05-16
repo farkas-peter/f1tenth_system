@@ -1,0 +1,22 @@
+
+https://roboracer.ai/build
+
+Different values from default:
+
+vesc6_max6000rpm:
+
+Max ERPM: 6000, -6000
+
+PID:
+Kp: 0,00200
+Ki: 0,00003
+Kd: 0,000400
+
+vesc6_10krpm:
+
+Max ERPM: 10000, -10000
+
+PID:
+Kp: 0,00200
+Ki: 0,00003
+Kd: 0,000400
