@@ -26,9 +26,45 @@ On Logitech F-710 joysticks, in manual control mode: the RT button is the thrott
 6. ackermann_mux [GitHub - f1tenth/ackermann_mux: Twist multiplexer](https://github.com/f1tenth/ackermann_mux). This is a package for multiplexing ackermann messages in ROS 2.
 <!-- 7. rosbridge_suite [https://index.ros.org/p/rosbridge_suite/#foxy-overview](https://index.ros.org/p/rosbridge_suite/#foxy-overview) This is a package that allows for websocket connection in ROS 2. -->
 
-## Package in this repo
+## Package in this repository
 
 1. f1tenth_stack: maintains the bringup launch and all parameter files
+2. cone_pkg: /custom package/ contains the cone identification node and pure pursuit control node for navigate between cones
+3. ackermann_mux: maintains the switching between control topics (teleop, drive)
+4. teleop_tools: maintains the hardware controlling methods (joy, keyboard, etc.)
+5. vesc: maintains the communication between the nodes and the vesc motor controller
+
+## Control values
+
+1. steering_angle = [-0.34, 0.34] rad:
+   - topic: teleop, drive
+   - type: AckermannDrive
+   - unit: radians
+   - maximum steering angle: 20° = 0.34 rad.
+   - left steering: 0-0.34 rad
+   - no steering: 0 rad
+   - right steerng: -0.34-0 rad
+   - The ackermann_to_vesc node converts this value into a number between 0 and 1 for the VESC.
+   - For the conversation (vesc.yaml):
+      - scale: -1.2135
+      - offset: 0.5304
+   - Safety feature:
+      - higher value then 0.34 rad will be clipped for the safety of servo motor and other parts
+
+2. speed = [-min, max] m/s:
+   - topic: teleop, drive
+   - type: AckermannDrive
+   - unit: m/s
+   - reverse: -min-0
+   - forward: 0-max
+   - Minimum and maximum speed can be adjust in vesc.yaml
+   - The controller's input value [m/s] is converted into RPM value in the ackermann_to_vesc node
+   - For the conversation (vesc.yaml):
+      - scale: 4200
+      - offset: 0
+   - Safety feature:
+      - the maximum RPM (10k RPM) is limited by the VESC motor controller
+
 
 ## Nodes launched in bringup
 
@@ -97,31 +133,6 @@ On Logitech F-710 joysticks, in manual control mode: the RT button is the thrott
    - sensors/core
    - sensors/servo_position_command
 
-### throttle_interpolator
-
-1. Parameters:
-   - rpm_input_topic
-   - rpm_output_topic
-   - servo_input_topic
-   - servo_output_topic
-   - max_acceleration
-   - speed_max
-   - speed_min
-   - throttle_smoother_rate
-   - speed_to_erpm_gain
-   - max_servo_speed
-   - steering_angle_to_servo_gain
-   - servo_smoother_rate
-   - servo_max
-   - servo_min
-   - steering_angle_to_servo_offset
-2. Publishes to:
-   - topic described in rpm_output_topic
-   - topic described in servo_output_topic
-3. Subscribes to:
-   - topic described in rpm_input_topic
-   - topic described in servo_input_topic
-
-### Graph of nodes
+## Graph of nodes
 
 ![plot](utility/rqt_graph_final.png)
