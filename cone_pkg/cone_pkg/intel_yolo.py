@@ -57,7 +57,6 @@ class RealSenseNode(Node):
         self.get_logger().info("RealSense node started.")
     
     def capture_frames(self):
-        center_points = []
         current_dataset = []
         
         frames = self.pipeline.wait_for_frames()
@@ -73,36 +72,10 @@ class RealSenseNode(Node):
         color_image = np.asanyarray(color_frame.get_data())
 
         if self.det_image_pub.get_subscription_count() >= 0:
-            #Object identification
-            det_result = self.trt_model(color_image, conf=0.6, imgsz=640,verbose=False)
+            det_annotated, center_points = self.object_identification(color_image, aligned_depth_frame)
+            self.image_pub(det_annotated)
+            current_dataset = self.pixel_to_point(center_points, current_dataset, aligned_depth_frame)
             
-            det_annotated = det_result[0].plot(show=False)
-            
-            for r in det_result:
-                if r.boxes.xywh.numel() == 0:
-                    #self.get_logger().info("No object detected!")
-                    continue
-            
-                for box in r.boxes.xywh:
-                    x, y, _, _ = box.tolist()
-                    x = round(x)
-                    y = round(y)
-                    dist = aligned_depth_frame.get_distance(x, y)
-                    center_points.append((x,y,round(dist,2)))
-
-            scaled_image = cv2.resize(det_annotated, (320, 180), interpolation=cv2.INTER_AREA)
-            gray_scaled_image = cv2.cvtColor(scaled_image, cv2.COLOR_BGR2GRAY)
-            self.det_image_pub.publish(self.bridge.cv2_to_imgmsg(gray_scaled_image, encoding="mono8"))
-            
-            #Pixels to 3D coordinates
-            for index, xyd in enumerate(center_points):
-                depth_intrin = aligned_depth_frame.profile.as_video_stream_profile().intrinsics
-                result = rs.rs2_deproject_pixel_to_point(depth_intrin, [xyd[0], xyd[1]], xyd[2])
-                x_map = round(result[2],3)
-                y_map = round(-result[0],3) + 0.037
-                z_map = round(-result[1],3)
-                current_dataset.append([x_map,y_map,z_map,index,0,0])
-
             if self.prev_dataset == None:
                 self.prev_dataset = current_dataset
             else:
@@ -118,17 +91,57 @@ class RealSenseNode(Node):
             else:
                 half_points = [[0,0,0]]
 
-
-            #half point publication
-            if half_points:
-                if half_points[0][0] != 0 and half_points[0][1] != 0 and half_points[0][2] != 0:
-                    point_to_pub = Point()
-                    point_to_pub.x = float(half_points[0][0])
-                    point_to_pub.y = float(half_points[0][1])
-                    point_to_pub.z = float(half_points[0][2])
-                    self.point_pub.publish(point_to_pub)
-
+            self.half_points_pub(half_points)
             self.marker_creator(filtered_dataset,half_points)
+
+
+    def object_identification(self, color_image, aligned_depth_frame):
+        center_points = []
+        #Object identification
+        det_result = self.trt_model(color_image, conf=0.6, imgsz=640,verbose=False)
+            
+        det_annotated = det_result[0].plot(show=False)
+            
+        for r in det_result:
+            if r.boxes.xywh.numel() == 0:
+                #self.get_logger().info("No object detected!")
+                continue
+            
+            for box in r.boxes.xywh:
+                x, y, _, _ = box.tolist()
+                x = round(x)
+                y = round(y)
+                dist = aligned_depth_frame.get_distance(x, y)
+                center_points.append((x,y,round(dist,2)))
+
+        return det_annotated, center_points
+            
+    def image_pub(self,det_annotated):
+        scaled_image = cv2.resize(det_annotated, (320, 180), interpolation=cv2.INTER_AREA)
+        gray_scaled_image = cv2.cvtColor(scaled_image, cv2.COLOR_BGR2GRAY)
+        self.det_image_pub.publish(self.bridge.cv2_to_imgmsg(gray_scaled_image, encoding="mono8"))
+            
+    def pixel_to_point(self,center_points, current_dataset, aligned_depth_frame):
+        #Pixels to 3D coordinates
+        for index, xyd in enumerate(center_points):
+            depth_intrin = aligned_depth_frame.profile.as_video_stream_profile().intrinsics
+            result = rs.rs2_deproject_pixel_to_point(depth_intrin, [xyd[0], xyd[1]], xyd[2])
+            x_map = round(result[2],3)
+            y_map = round(-result[0],3) + 0.037
+            z_map = round(-result[1],3)
+            current_dataset.append([x_map,y_map,z_map,index,0,0])
+
+        return current_dataset
+    
+    def half_points_pub(self, half_points):
+        #half point publication
+        if half_points:
+            if half_points[0][0] != 0 and half_points[0][1] != 0 and half_points[0][2] != 0:
+                point_to_pub = Point()
+                point_to_pub.x = float(half_points[0][0])
+                point_to_pub.y = float(half_points[0][1])
+                point_to_pub.z = float(half_points[0][2])
+                self.point_pub.publish(point_to_pub)
             
     def gate_finding(self,cones):
         pairs = []
