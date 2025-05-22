@@ -8,6 +8,7 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2
 import os
+import copy
 from cv_bridge import CvBridge
 from ultralytics import YOLO
 
@@ -77,9 +78,10 @@ class RealSenseNode(Node):
             current_dataset = self.pixel_to_point(center_points, current_dataset, aligned_depth_frame)
             
             if self.prev_dataset == None:
-                self.prev_dataset = current_dataset
+                self.prev_dataset = copy.deepcopy(current_dataset)
+
             else:
-                self.prev_dataset = self.update(current_dataset)
+                self.prev_dataset = copy.deepcopy(self.update(current_dataset))
 
             #Appearance filtering
             filtered_dataset = [item for item in self.prev_dataset if item[4] >= self.min_frame]
@@ -217,6 +219,15 @@ class RealSenseNode(Node):
                     if self.prev_dataset[j][3] in halmaz:
                         halmaz.remove(self.prev_dataset[j][3])
                     break
+        
+        """
+        #Debug
+        s = "Current: {" + ",".join(str(row[3]) for row in current) + "}"
+        prev_s = "Prev: {" + ",".join(str(row[3]) for row in self.prev_dataset) + "}"
+        self.get_logger().info(s)
+        self.get_logger().info(prev_s)
+        self.get_logger().info("--------------")
+        """
 
         for i in range(0,len(current)):
             if np.isnan(current[i][3]):
