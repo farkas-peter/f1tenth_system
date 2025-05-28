@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, Imu
 from geometry_msgs.msg import Point
 from visualization_msgs.msg import MarkerArray,Marker
 import pyrealsense2 as rs
@@ -31,6 +31,7 @@ class RealSenseNode(Node):
         self.det_image_pub = self.create_publisher(Image, "/ultralytics/detection/image", 1)
         self.point_pub = self.create_publisher(Point,"/target_point",10)
         self.rviz_pub = self.create_publisher(MarkerArray,"/rviz",1)
+        self.imu_pub = self.create_publisher(Imu,'/camera/imu',1)
 
         #CLI:
         #yolo export model=Cone.pt format=engine imgsz=640#
@@ -47,7 +48,9 @@ class RealSenseNode(Node):
         config = rs.config()
         config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 30)
         config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 30)
-        
+        config.enable_stream(rs.stream.accel)
+        config.enable_stream(rs.stream.gyro)
+
         self.pipeline.start(config)
 
         #color frame align to depth frame
@@ -61,6 +64,8 @@ class RealSenseNode(Node):
         current_dataset = []
         
         frames = self.pipeline.wait_for_frames()
+
+        self.imu_publication(frames)    
 
         aligned_frames = self.align.process(frames)
 
@@ -95,6 +100,29 @@ class RealSenseNode(Node):
 
             self.half_points_pub(half_points)
             self.marker_creator(filtered_dataset,half_points)
+
+    def imu_publication(self,frames):
+        accel_frame = frames.first_or_default(rs.stream.accel)
+        gyro_frame = frames.first_or_default(rs.stream.gyro)
+
+        imu_msg = Imu()
+        imu_msg.header.stamp = self.get_clock().now().to_msg()
+        imu_msg.header.frame_id = 'camera_imu_frame'
+
+        if accel_frame:
+            accel = accel_frame.as_motion_frame().get_motion_data()
+            imu_msg.linear_acceleration.x = accel.x
+            imu_msg.linear_acceleration.y = accel.y
+            imu_msg.linear_acceleration.z = accel.z
+
+        if gyro_frame:
+            gyro = gyro_frame.as_motion_frame().get_motion_data()
+            imu_msg.angular_velocity.x = gyro.x
+            imu_msg.angular_velocity.y = gyro.y
+            imu_msg.angular_velocity.z = gyro.z
+
+        self.imu_pub.publish(imu_msg)
+        
 
 
     def object_identification(self, color_image, aligned_depth_frame):
