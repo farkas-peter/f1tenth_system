@@ -24,6 +24,7 @@ class RealSenseNode(Node):
         self.max_distance = 0.8
         self.min_angle = 60
         self.max_angle = 120
+        self.pre_point_dist = 0.4
 
         self.bridge = CvBridge()
         
@@ -192,11 +193,19 @@ class RealSenseNode(Node):
                 if not self.is_gate_direction(c1, c2):
                     continue
 
-                #pairs.append([i, j,0])
+                #Perpendicular point
+                x,y = self.compute_perpendicular_point(c1,c2,self.pre_point_dist)
+                dist_p = np.sqrt(x**2+y**2)
+                if dist_p > 0.4:
+                    p = [x,y,cones[i][2]]
+                    pairs.append(p)
+
+                #Middle point
                 c1 = [c1[0],c1[1],cones[i][2]]
                 c2 = [c2[0],c2[1],cones[j][2]]
                 gate = self.mean_point_calc(c1,c2)
                 pairs.append(gate)
+
                 used.add(i)
                 used.add(j)
                 break 
@@ -218,7 +227,36 @@ class RealSenseNode(Node):
         dot_product = np.clip(np.dot(unit_v1, unit_v2), -1.0, 1.0)
         angle_rad = np.arccos(dot_product)
         return np.degrees(angle_rad)
- 
+    
+    def compute_perpendicular_point(self,c1, c2, x):
+        c1 = np.array(c1)
+        c2 = np.array(c2)
+    
+        #Midpoint
+        mid = (c1 + c2) / 2.0
+
+        #vector between the two cone
+        v = c2 - c1
+        v = v / np.linalg.norm(v)
+
+        #Perpendicular vector in the both way
+        perp1 = np.array([-v[1], v[0]])
+        perp2 = -perp1
+
+        #Two pre-point in the both way
+        p1 = mid + perp1 * x
+        p2 = mid + perp2 * x
+
+        #Distances between the origo and the pre-points
+        d1 = np.linalg.norm(p1)
+        d2 = np.linalg.norm(p2)
+
+        #Choosing the closer point
+        p = p1 if d1 < d2 else p2
+
+        x,y = p[0], p[1]
+        return x,y
+
     def update(self, current):
         #Object tracking
         halmaz = set()
