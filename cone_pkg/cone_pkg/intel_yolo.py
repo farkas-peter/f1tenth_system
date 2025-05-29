@@ -229,9 +229,6 @@ class RealSenseNode(Node):
         return np.degrees(angle_rad)
     
     def compute_perpendicular_point(self,c1, c2, x):
-        c1 = np.array(c1)
-        c2 = np.array(c2)
-    
         #Midpoint
         mid = (c1 + c2) / 2.0
 
