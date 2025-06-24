@@ -15,6 +15,9 @@ def extract_data(log_dict):
     input_steering = []
     output_steering = []
 
+    target_x = []
+    target_y = []
+
     for t_str in sorted(log_dict.keys(), key=lambda x: float(x)):
         t = float(t_str)
         entry = log_dict[t_str]
@@ -24,7 +27,8 @@ def extract_data(log_dict):
             entry["input_speed"] is None or
             entry["output_speed"] is None or
             entry["input_steering_angle"] is None or
-            entry["output_steering_angle"] is None
+            entry["output_steering_angle"] is None or
+            entry["target_point"] is None
         ):
             continue
 
@@ -47,6 +51,11 @@ def extract_data(log_dict):
 
         output_steering.append(entry['output_steering_angle'])
 
+        if "target_point" in entry and "position" in entry["target_point"]:
+            tp = entry["target_point"]["position"]
+            target_x.append(tp['x'])
+            target_y.append(tp['y'])
+
     return {
         "timestamps": timestamps,
         "x": x_vals,
@@ -54,13 +63,17 @@ def extract_data(log_dict):
         "input_speed": input_speed,
         "output_speed": output_speed,
         "input_steering": input_steering,
-        "output_steering": output_steering
+        "output_steering": output_steering,
+        "target_x": target_x,
+        "target_y": target_y
     }
 
 def plot_all(data):
     # 1. X-Y pozíció (globális)
     plt.figure()
     plt.plot(data["x"], data["y"], label='trajectory')
+    if data["target_x"] and data["target_y"]:
+        plt.scatter(data["target_x"], data["target_y"], label='target_points', color='green', s=30, marker='x')
     plt.xlabel("X [m]")
     plt.ylabel("Y [m]")
     plt.title("Vehicle Global Position (Odometry)")
@@ -91,6 +104,6 @@ def plot_all(data):
     plt.show()
 
 if __name__ == "__main__":
-    log_data = load_log_file("log_20250624_122305.json")  # ← fájlnevet cseréld ki szükség szerint
+    log_data = load_log_file("log_20250624_134534.json")  # ← fájlnevet cseréld ki szükség szerint
     processed_data = extract_data(log_data)
     plot_all(processed_data)

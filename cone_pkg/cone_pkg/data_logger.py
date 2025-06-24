@@ -3,6 +3,7 @@ from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Float64
 from vesc_msgs.msg import VescStateStamped
+from geometry_msgs.msg import Point
 
 import json
 import os
@@ -31,6 +32,8 @@ class LoggerNode(Node):
         self.input_steering_angle_data = None
         self.output_speed_data = None
         self.output_steering_angle_data = None
+        self.pos = Point()
+        self.target_point = Point()
 
         # Feliratkozások
         self.create_subscription(Odometry, '/odom', self.odom_cb, 10)
@@ -38,6 +41,7 @@ class LoggerNode(Node):
         self.create_subscription(Float64, '/commands/servo/position', self.input_steering_angle_cb, 10)
         self.create_subscription(VescStateStamped, '/sensors/core', self.output_speed_cb, 10)
         self.create_subscription(Float64, '/sensors/servo_position_command', self.output_steering_angle_cb, 10)
+        self.create_subscription(Point, '/target_point', self.target_cb, 10)
 
         # Timer 10 Hz
         self.timer = self.create_timer(0.1, self.timer_cb)
@@ -49,15 +53,27 @@ class LoggerNode(Node):
 
         timestamp_key = f"{elapsed:.3f}"
 
+        x = self.pos.x + self.target_point.x
+        y = self.pos.y + self.target_point.y
+        target_data = {
+            'position':{
+                'x':x,
+                'y':y
+            }
+        }
+
         self.data_log[timestamp_key] = {
             'odom': self.odom_data,
             'input_speed': self.input_speed_data,
             'input_steering_angle': self.input_steering_angle_data,
             'output_speed': self.output_speed_data,
-            'output_steering_angle': self.output_steering_angle_data
+            'output_steering_angle': self.output_steering_angle_data,
+            'target_point': target_data
         }
 
     def odom_cb(self, msg: Odometry):
+        self.pos.x = msg.pose.pose.position.x
+        self.pos.y = msg.pose.pose.position.y
         self.odom_data = {
             'position': {
                 'x': msg.pose.pose.position.x,
@@ -95,6 +111,10 @@ class LoggerNode(Node):
 
     def output_steering_angle_cb(self, msg: Float64):
         self.output_steering_angle_data = msg.data
+
+    def target_cb(self, msg: Point):
+        self.target_point.x = msg.x
+        self.target_point.y = msg.y
 
     def destroy_node(self):
         # Kilépéskor fájlba mentés
