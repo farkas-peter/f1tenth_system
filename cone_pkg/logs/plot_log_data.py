@@ -19,6 +19,15 @@ def extract_data(log_dict):
         t = float(t_str)
         entry = log_dict[t_str]
 
+        if (
+            entry["odom"] is None or
+            entry["input_speed"] is None or
+            entry["output_speed"] is None or
+            entry["input_steering_angle"] is None or
+            entry["output_steering_angle"] is None
+        ):
+            continue
+
         odom = entry['odom']
         pos = odom['position']
 
@@ -82,6 +91,6 @@ def plot_all(data):
     plt.show()
 
 if __name__ == "__main__":
-    log_data = load_log_file("log_20250624_104317.json")  # ← fájlnevet cseréld ki szükség szerint
+    log_data = load_log_file("log_20250624_122305.json")  # ← fájlnevet cseréld ki szükség szerint
     processed_data = extract_data(log_data)
     plot_all(processed_data)
