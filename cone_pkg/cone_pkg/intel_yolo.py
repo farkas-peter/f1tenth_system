@@ -193,12 +193,14 @@ class RealSenseNode(Node):
                 if not self.is_gate_direction(c1, c2):
                     continue
 
+                """
                 #Perpendicular point
                 x,y = self.compute_perpendicular_point(c1,c2,self.pre_point_dist)
                 dist_p = np.sqrt(x**2+y**2)
                 if dist_p > 0.4:
                     p = [x,y,cones[i][2]]
                     pairs.append(p)
+                """
 
                 #Middle point
                 c1 = [c1[0],c1[1],cones[i][2]]
