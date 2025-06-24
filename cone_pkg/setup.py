@@ -22,7 +22,8 @@ setup(
         'console_scripts': [
             'drive_publisher = cone_pkg.drive_publisher:main',
             'pure_pursuit_control = cone_pkg.pure_pursuit_control:main',
-            'intel_yolo = cone_pkg.intel_yolo:main'
+            'intel_yolo = cone_pkg.intel_yolo:main',
+            'data_logger = cone_pkg.data_logger:main'
         ],
     },
 )
