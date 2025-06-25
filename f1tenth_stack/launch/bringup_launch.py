@@ -142,6 +142,11 @@ def generate_launch_description():
         name='intel_yolo_node',
         output = 'screen'
     )
+    ekf_node = Node(
+        package='cone_pkg',
+        executable='ekf',
+        name='ekf_node'
+    )
     
     # finalize
     ld.add_action(joy_node)
@@ -149,12 +154,13 @@ def generate_launch_description():
     ld.add_action(ackermann_to_vesc_node)
     ld.add_action(vesc_to_odom_node)
     ld.add_action(vesc_driver_node)
-    # ld.add_action(throttle_interpolator_node)
-    # ld.add_action(urg_node)
     ld.add_action(ackermann_mux_node)
-    ld.add_action(static_tf_node)
+    #ld.add_action(throttle_interpolator_node)
+    #ld.add_action(urg_node)
+    #ld.add_action(static_tf_node)
     #ld.add_action(drive_publisher_node)
     ld.add_action(pure_pursuit_control_node)
     ld.add_action(intel_yolo_node)
+    ld.add_action(ekf_node)
 
     return ld
