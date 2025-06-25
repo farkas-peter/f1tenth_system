@@ -10,8 +10,8 @@ class EKF:
         self.dt = dt
         self.x = np.zeros((4, 1))  # [x, y, theta, v]
         self.P = np.eye(4) * 0.1
-        self.Q = np.eye(4) * 0.01
-        self.R = np.eye(2) * 0.05
+        self.Q = np.eye(4) * 0.001
+        self.R = np.eye(2) * 0.01
 
     def predict(self, omega, a):
         theta = self.x[2, 0]
