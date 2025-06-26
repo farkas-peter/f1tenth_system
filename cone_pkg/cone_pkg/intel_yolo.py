@@ -21,7 +21,7 @@ class RealSenseNode(Node):
         self.min_frame = 0 #appearance protection
         self.max_frame = 5 #disapearance protection
         #New parameters
-        self.max_distance = 0.8
+        self.max_distance = 1.2
         self.min_angle = 60
         self.max_angle = 120
         self.pre_point_dist = 0.4
@@ -165,14 +165,23 @@ class RealSenseNode(Node):
         return current_dataset
     
     def half_points_pub(self, half_points):
-        #half point publication
-        if half_points:
-            if half_points[0][0] != 0 and half_points[0][1] != 0 and half_points[0][2] != 0:
-                point_to_pub = Point()
-                point_to_pub.x = float(half_points[0][0])
-                point_to_pub.y = float(half_points[0][1])
-                point_to_pub.z = float(half_points[0][2])
-                self.point_pub.publish(point_to_pub)
+        if not half_points:
+            return
+
+        # Legközelebbi pont kiválasztása az origóhoz
+        closest_point = min(
+            half_points,
+            key=lambda p: p[0]**2 + p[1]**2 + p[2]**2  # Nincs sqrt, elég a négyzetes távolság
+        )
+
+        # Ha nem (0,0,0) a pont, akkor publikáljuk
+        if closest_point != (0, 0, 0):
+            point_to_pub = Point()
+            point_to_pub.x = float(closest_point[0])
+            point_to_pub.y = float(closest_point[1])
+            point_to_pub.z = float(closest_point[2])
+            self.point_pub.publish(point_to_pub)
+
             
     def gate_finding(self,cones):
         pairs = []
