@@ -4,6 +4,7 @@ from geometry_msgs.msg import Point
 from ackermann_msgs.msg import AckermannDriveStamped
 from std_msgs.msg import Bool
 from sensor_msgs.msg import Joy
+from rclpy.time import Time
 import math
 
 
@@ -16,6 +17,7 @@ class PurePursuitLocal(Node):
         self.constant_speed = 2.0
 
         self.target_point = None
+        self.last_target_time = Time()
 
         self.enabled = False
         self.subscription = self.create_subscription(Bool, '/autonomous_enable', self.enable_cb, 10)
@@ -46,16 +48,28 @@ class PurePursuitLocal(Node):
 
     def target_callback(self, msg):
         self.target_point = msg
+        self.last_target_time = self.get_clock().now()
 
     def control_loop(self):
+        drive_msg = AckermannDriveStamped()
         if self.target_point is None:
             return
+        
+        
+        if self.last_target_time is None or (self.get_clock().now() - self.last_target_time).nanoseconds > 2e8:
+            #self.get_logger().warn("Nincs friss target_point üzenet!")
+            drive_msg.drive.speed = 0.0
+            drive_msg.drive.steering_angle = 0.0
+
+            self.drive_pub.publish(drive_msg)
+            return
+
         if self.enabled:
             x = self.target_point.x
             y = self.target_point.y
             distance = math.sqrt(x ** 2 + y ** 2)
 
-            if distance < 0.01:
+            if distance < 0.1:
                 self.get_logger().info('Cél túl közel, nem vezérelünk.')
                 return
             
@@ -65,7 +79,6 @@ class PurePursuitLocal(Node):
             curvature = (2*math.sin(alpha))/(lookahead_distance)
             steering_angle = math.atan(self.wheelbase*curvature)
             
-            drive_msg = AckermannDriveStamped()
             drive_msg.drive.speed = input_speed
             drive_msg.drive.steering_angle = steering_angle
 
