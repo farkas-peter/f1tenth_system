@@ -1,6 +1,7 @@
 import json
 import matplotlib.pyplot as plt
 import math
+import numpy as np
 
 def load_log_file(path):
     with open(path, 'r') as f:
@@ -31,8 +32,7 @@ def extract_data(log_dict):
             entry["input_speed"] is None or
             entry["output_speed"] is None or
             entry["input_steering_angle"] is None or
-            entry["output_steering_angle"] is None or
-            entry["target_point"] is None
+            entry["output_steering_angle"] is None
         ):
             continue
 
@@ -68,7 +68,7 @@ def extract_data(log_dict):
 
             # Az aktuális járműpozícióhoz mért távolság
             d = distance(tx, ty, pos['x'], pos['y'])
-            if d <= 1.0:
+            if d <= 1.0 and d != 0.0:
                 target_x.append(tx)
                 target_y.append(ty)
         """
@@ -93,15 +93,15 @@ def extract_data(log_dict):
     }
 
 def distance(x1, y1, x2, y2):
-    return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+    return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
 
 def plot_all(data):
     label_size = 18
     tick_size = 14
     legend_size = 14
 
-    cones_x = [1.6,1.6,4.1,4.1,6.6,6.6,9.1,9.1,11.6,11.6]
-    cones_y = [-0.35,0.35,-0.25,0.45,-0.45,0.25,-0.55,0.15,-0.25,0.45]
+    cones_x = [1.2,1.25,2.93,3.24,4.3,4.81,5.59,6.33,6.86,7.72,7.83,8.56]
+    cones_y = [0.40,-0.25,0.67,0.05,1.25,0.784,2.57,1.97,4.07,3.54,5.97,5.68]
 
     # 1. X-Y pozíció (globális)
     plt.figure(figsize=(18, 6))
@@ -109,35 +109,50 @@ def plot_all(data):
     plt.scatter(cones_x, cones_y, label='Cones', s=100, marker = 'o', color = 'orange')
     #plt.plot(data["x_ekf"], data["y_ekf"], label='trajectory with imu')
     if data["target_x"] and data["target_y"]:
-        plt.scatter(data["target_x"][:-8], data["target_y"][:-8], label='Target points', color='green', s=30, marker='x')
+        plt.scatter(data["target_x"], data["target_y"], label='Target points', color='green', s=30, marker='x')
     plt.xlabel("X [m]",fontsize =label_size)
     plt.ylabel("Y [m]",fontsize =label_size)
     plt.title("Vehicle Global Position (Odometry)",fontsize =label_size)
     plt.grid()
+    plt.axis("equal")
+    plt.xticks(fontsize =tick_size)
+    plt.yticks(fontsize =tick_size)
+    #plt.xlim(-1,10)
+    plt.legend(fontsize =legend_size)
+
+    
+    timestamps = np.array(data["timestamps"])
+    op_speed_raw = np.array(data["output_speed"])
+    ip_speed_raw = np.array(data["input_speed"])
+    mask = timestamps <= 21.0
+    filtered_timestamps = timestamps[mask]
+    filtered_op_speed = op_speed_raw[mask]
+    filtered_ip_speed = ip_speed_raw[mask]
+    # 2. Sebesség
+    plt.figure(figsize=(18, 6))
+    plt.plot(filtered_timestamps, filtered_ip_speed, label='Speed demand')
+    plt.plot(filtered_timestamps, filtered_op_speed, label='Actual speed')
+    plt.xlabel("Time [s]",fontsize =label_size)
+    plt.ylabel("Speed [RPM]",fontsize =label_size)
+    plt.title("Speed over Time",fontsize =label_size)
+    plt.grid()
     plt.xticks(fontsize =tick_size)
     plt.yticks(fontsize =tick_size)
     plt.legend(fontsize =legend_size)
-
-    """
-    # 2. Sebesség
-    plt.figure(figsize=(10, 4))
-    plt.plot(data["timestamps"], data["input_speed"], label='input_speed')
-    plt.plot(data["timestamps"], data["output_speed"], label='output_speed')
-    plt.xlabel("Time [s]")
-    plt.ylabel("Speed [m/s]")
-    plt.title("Speed over Time")
-    plt.grid()
-    plt.legend()
-    """
+    
     
     # 3. Kormányzási szög
+    """
+    timestamps = np.array(data["timestamps"])
+    steering_raw = np.array(data["output_steering"])
+
+    mask = timestamps <= 19.6
+    filtered_timestamps = timestamps[mask]
+    filtered_steering = ((steering_raw[mask] - 0.5235) / -1.2135) * (180.0 / math.pi)
+    
     plt.figure(figsize=(18, 6))
-    converted_output_steering_deg = [
-        ((val - 0.5235) / -1.2135) * (180.0 / math.pi)
-        for val in data["output_steering"]
-    ]
     #plt.plot(data["timestamps"], data["input_steering"], label='input_steering')
-    plt.plot(data["timestamps"], converted_output_steering_deg, label='Steering angle')
+    plt.plot(filtered_timestamps, filtered_steering, label='Steering angle')
     plt.xlabel("Time [s]",fontsize =label_size)
     plt.ylabel("Steering Angle [°]",fontsize =label_size)
     plt.title("Steering Angle over Time",fontsize =label_size)
@@ -145,10 +160,10 @@ def plot_all(data):
     plt.xticks(fontsize =tick_size)
     plt.yticks(fontsize =tick_size)
     plt.legend(fontsize =legend_size)
-
+    """
     plt.show()
 
 if __name__ == "__main__":
-    log_data = load_log_file("log_20250625_143923.json")  # ← fájlnevet cseréld ki szükség szerint
+    log_data = load_log_file("log_20250626_115241.json")  # ← fájlnevet cseréld ki szükség szerint
     processed_data = extract_data(log_data)
     plot_all(processed_data)
