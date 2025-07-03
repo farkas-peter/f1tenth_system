@@ -66,6 +66,8 @@ private:
 
   // odometry state
   double x_, y_, yaw_;
+  double last_speed_{0.0};
+  double last_angular_velocity_{0.0};
   Float64::SharedPtr last_servo_cmd_;  ///< Last servo position commanded value
   VescStateStamped::SharedPtr last_state_;  ///< Last received state message
 

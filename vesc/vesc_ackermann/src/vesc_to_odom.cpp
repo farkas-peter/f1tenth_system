@@ -111,24 +111,31 @@ void VescToOdom::vescStateCallback(const VescStateStamped::SharedPtr state)
   // use current state as last state if this is our first time here
   if (!last_state_) {
     last_state_ = state;
+    last_speed_ = 0.0;
+    last_angular_velocity_ = 0.0;
   }
 
   // calc elapsed time
   auto dt = rclcpp::Time(state->header.stamp) - rclcpp::Time(last_state_->header.stamp);
 
   /** @todo could probably do better propigating odometry, e.g. trapezoidal integration */
+   // Átlagolt (trapezoidális) integráció
+  double avg_speed = 0.5 * (last_speed_ + current_speed);
+  double avg_angular_velocity = 0.5 * (last_angular_velocity_ + current_angular_velocity);
 
   // propigate odometry
-  double x_dot = current_speed * cos(yaw_);
-  double y_dot = current_speed * sin(yaw_);
+  double x_dot = avg_speed * cos(yaw_);
+  double y_dot = avg_speed * sin(yaw_);
   x_ += x_dot * dt.seconds();
   y_ += y_dot * dt.seconds();
   if (use_servo_cmd_) {
-    yaw_ += current_angular_velocity * dt.seconds();
+    yaw_ += avg_angular_velocity * dt.seconds();
   }
 
   // save state for next time
   last_state_ = state;
+  last_speed_ = current_speed;
+  last_angular_velocity_ = current_angular_velocity;
 
   // publish odometry message
   Odometry odom;
