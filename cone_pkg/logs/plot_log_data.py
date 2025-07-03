@@ -106,7 +106,7 @@ def plot_all(data):
     # 1. X-Y pozíció (globális)
     plt.figure(figsize=(18, 6))
     plt.plot(data["x"], data["y"], label='Ego trajectory')
-    plt.scatter(cones_x, cones_y, label='Cones', s=100, marker = 'o', color = 'orange')
+    #plt.scatter(cones_x, cones_y, label='Cones', s=100, marker = 'o', color = 'orange')
     #plt.plot(data["x_ekf"], data["y_ekf"], label='trajectory with imu')
     if data["target_x"] and data["target_y"]:
         plt.scatter(data["target_x"], data["target_y"], label='Target points', color='green', s=30, marker='x')
@@ -164,6 +164,6 @@ def plot_all(data):
     plt.show()
 
 if __name__ == "__main__":
-    log_data = load_log_file("log_20250626_115241.json")  # ← fájlnevet cseréld ki szükség szerint
+    log_data = load_log_file("log_20250703_130807.json")  # ← fájlnevet cseréld ki szükség szerint
     processed_data = extract_data(log_data)
     plot_all(processed_data)
