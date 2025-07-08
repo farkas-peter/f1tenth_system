@@ -52,6 +52,7 @@ private:
   double speed_to_erpm_gain_, speed_to_erpm_offset_;
   double speed_to_current_gain_, speed_to_current_offset_;
   double steering_to_servo_gain_, steering_to_servo_offset_;
+  double steering_gain_left_, steering_gain_right_;
 
   /** @todo consider also providing an interpolated look-up table conversion */
 

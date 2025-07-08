@@ -67,6 +67,8 @@ VescToOdom::VescToOdom(const rclcpp::NodeOptions & options)
     steering_to_servo_gain_ = declare_parameter("steering_angle_to_servo_gain").get<double>();
     steering_to_servo_offset_ = declare_parameter("steering_angle_to_servo_offset").get<double>();
     wheelbase_ = declare_parameter("wheelbase").get<double>();
+    steering_gain_left_ = declare_parameter("steering_gain_left").get<double>();
+    steering_gain_right_ = declare_parameter("steering_gain_right").get<double>();
   }
 
   publish_tf_ = declare_parameter("publish_tf", publish_tf_);
@@ -103,8 +105,14 @@ void VescToOdom::vescStateCallback(const VescStateStamped::SharedPtr state)
   }
   double current_steering_angle(0.0), current_angular_velocity(0.0);
   if (use_servo_cmd_) {
-    current_steering_angle =
-      (last_servo_cmd_->data - steering_to_servo_offset_) / steering_to_servo_gain_;
+    double servo_cmd = last_servo_cmd_->data;
+    if (servo_cmd > steering_to_servo_offset_) {
+      current_steering_angle =(servo_cmd - steering_to_servo_offset_) / steering_gain_right_;
+    }
+    else {
+      current_steering_angle =(servo_cmd - steering_to_servo_offset_) / steering_gain_left_;
+    }
+    //current_steering_angle =(last_servo_cmd_->data - steering_to_servo_offset_) / steering_to_servo_gain_;
     current_angular_velocity = current_speed * tan(current_steering_angle) / wheelbase_;
   }
 

@@ -54,6 +54,8 @@ AckermannToVesc::AckermannToVesc(const rclcpp::NodeOptions & options)
   speed_to_current_offset_ = declare_parameter("speed_to_current_offset").get<double>();
   steering_to_servo_gain_ = declare_parameter("steering_angle_to_servo_gain").get<double>();
   steering_to_servo_offset_ = declare_parameter("steering_angle_to_servo_offset").get<double>();
+  steering_gain_left_ = declare_parameter("steering_gain_left").get<double>();
+  steering_gain_right_ = declare_parameter("steering_gain_right").get<double>();
 
   // create publishers to vesc electric-RPM (speed) and servo commands
   erpm_pub_ = create_publisher<Float64>("commands/motor/speed", 10);
@@ -86,7 +88,14 @@ void AckermannToVesc::ackermannCmdCallback(const AckermannDriveStamped::SharedPt
 
   // calc steering angle (servo)
   Float64 servo_msg;
-  servo_msg.data = steering_to_servo_gain_ * cmd->drive.steering_angle + steering_to_servo_offset_;
+  double steering_angle_ = cmd->drive.steering_angle;
+  if (steering_angle_ > 0.0) {
+    servo_msg.data = steering_gain_left_ * steering_angle_ + steering_to_servo_offset_;
+  }
+  else {
+    servo_msg.data = steering_gain_right_ * steering_angle_ + steering_to_servo_offset_;
+  }
+  //servo_msg.data = steering_to_servo_gain_ * cmd->drive.steering_angle + steering_to_servo_offset_;
 
   // publish
   if (rclcpp::ok()) {
