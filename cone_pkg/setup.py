@@ -24,7 +24,8 @@ setup(
             'pure_pursuit_control = cone_pkg.pure_pursuit_control:main',
             'intel_yolo = cone_pkg.intel_yolo:main',
             'data_logger = cone_pkg.data_logger:main',
-            'ekf = cone_pkg.ekf:main'
+            'ekf = cone_pkg.ekf:main',
+            'FSS = cone_pkg.FSS:main'
         ],
     },
 )
