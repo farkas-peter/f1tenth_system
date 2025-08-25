@@ -4,6 +4,7 @@ from rclpy.duration import Duration
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
+from visualization_msgs.msg import Marker
 from std_msgs.msg import Header
 import pyrealsense2 as rs
 import numpy as np
@@ -18,17 +19,17 @@ class RealSenseNode(Node):
         self.res_width = 640
         self.res_height = 480
         self.clip_dist = 3.0
-        self.upper_threshold = -0.1
-        self.lower_threshold = -0.2
+        self.zmax = 0.05
+        self.zmin = -0.1
 
         self.bridge = CvBridge()
         
         # ROS 2 Publisher
         self.image_publish = self.create_publisher(Image, "/gray_image", 1)
         self.cloud_publish = self.create_publisher(PointCloud2, "/free_space", 1)
+        self.marker_publish= self.create_publisher(Marker, "/car",1)
 
         #Stereo Camera
-
         # Configure depth and color streams
         self.pipeline = rs.pipeline()
         config = rs.config()
@@ -56,8 +57,14 @@ class RealSenseNode(Node):
     def capture_frames(self):
         
         frames = self.pipeline.wait_for_frames()
+
+        #Filtering
+        self.decimate = rs.decimation_filter()
+        self.decimate.set_option(rs.option.filter_magnitude, 2)
+
         aligned_frames = self.align.process(frames)
         depth_frame = aligned_frames.get_depth_frame()
+        depth_frame = self.decimate.process(depth_frame)
         color_frame = aligned_frames.get_color_frame()
         if not depth_frame or not color_frame:
             return
@@ -74,8 +81,20 @@ class RealSenseNode(Node):
         self.get_logger().info(f"Run time: {elapsed:.3f}s")
         """
 
+        #Image points to 3D points
         points_xyz = self.depth2PointCloud(depth_frame)
+        
+        #Ground floor filtering
+        points_xyz = self.ground_filter(points_xyz)
+
+        #Additional fltering for performance
+        #points_xyz = self.random_subsample(points_xyz, 20000)
+
+        #Pointcloud publication
         self.pointcloud_pub(points_xyz)
+
+        #Car marker publication
+        self.marker_pub()
 
     def depth2PointCloud(self, depth):
     
@@ -95,7 +114,7 @@ class RealSenseNode(Node):
    
         z = np.ravel(z)[valid]
         x = np.ravel(x)[valid]
-        y = np.ravel(y)[valid]
+        y = np.ravel(y)[valid] - 0.2
     
         pointsxyz = np.dstack((z, -x, -y))
         pointsxyz = pointsxyz.reshape(-1,3)
@@ -107,27 +126,6 @@ class RealSenseNode(Node):
         gray_scaled_image = cv2.cvtColor(scaled_image, cv2.COLOR_BGR2GRAY)
         self.image_publish.publish(self.bridge.cv2_to_imgmsg(gray_scaled_image, encoding="mono8"))
 
-    def free_space_segmentaton(self, aligned_depth_frame):
-        points = []
-
-        depth_intrin = aligned_depth_frame.profile.as_video_stream_profile().intrinsics
-
-        for x in range(848):
-            for y in range(240,480):
-                dist = aligned_depth_frame.get_distance(x, y)
-                result = rs.rs2_deproject_pixel_to_point(depth_intrin, [x, y], dist)
-                z_map = round(-result[1],3)
-                if self.lower_threshold < z_map < self.upper_threshold:
-                    x_map = round(result[2],3)
-                    y_map = round(-result[0],3) + 0.037
-
-                    points.append([x_map,y_map,z_map])
-
-                else:
-                    continue
-                
-        return points
-    
     def pointcloud_pub(self, points):
         header = Header()
         header.stamp = self.get_clock().now().to_msg()
@@ -136,6 +134,54 @@ class RealSenseNode(Node):
         cloud = point_cloud2.create_cloud_xyz32(header, points)
 
         self.cloud_publish.publish(cloud)
+
+    def ground_filter(self, points: np.ndarray) -> np.ndarray:
+        if len(points) == 0:
+            return points
+        mask = (points[:,2] >= self.zmin) & (points[:,2] <= self.zmax)
+        return points[mask]
+
+    def random_subsample(self, points: np.ndarray, max_points: int = 40000) -> np.ndarray:
+        if len(points) <= max_points:
+            return points
+        idx = np.random.choice(len(points), size=max_points, replace=False)
+        return points[idx]
+    
+    def marker_pub(self):
+        robot_marker = Marker()
+
+        #Car
+        robot_marker.header.frame_id = "map"
+        robot_marker.ns = "robot"
+        robot_marker.id = 0
+        robot_marker.type = Marker.CUBE
+        robot_marker.action = Marker.ADD
+
+        #Position
+        robot_marker.pose.position.x = 0.0
+        robot_marker.pose.position.y = 0.0
+        robot_marker.pose.position.z = 0.075
+
+        #Orientation
+        robot_marker.pose.orientation.x = 0.0
+        robot_marker.pose.orientation.y = 0.0
+        robot_marker.pose.orientation.z = 0.0
+        robot_marker.pose.orientation.w = 1.0 
+
+        #Size
+        robot_marker.scale.x = 0.3
+        robot_marker.scale.y = 0.2
+        robot_marker.scale.z = 0.15
+            
+        #Color
+        robot_marker.color.a = 1.0
+        robot_marker.color.r = 1.0
+        robot_marker.color.g = 0.0
+        robot_marker.color.b = 0.0
+
+        robot_marker.lifetime = Duration(seconds=0.1).to_msg()
+
+        self.marker_publish.publish(robot_marker)
 
     
     def shutdown(self):
