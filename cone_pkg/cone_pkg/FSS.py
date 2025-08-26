@@ -17,8 +17,8 @@ class RealSenseNode(Node):
     def __init__(self):
         super().__init__('realsense_node')
         #Parameters
-        self.res_width = 640
-        self.res_height = 480
+        self.width = 640
+        self.height = 480
         self.clip_dist = 3.0
         self.zmax = 0.3
         self.zmin = -0.3
@@ -44,14 +44,25 @@ class RealSenseNode(Node):
         pipeline_profile = config.resolve(pipeline_wrapper)
         device = pipeline_profile.get_device()
         depth_sensor = device.first_depth_sensor()
+
+        #Auto-exposure setting
+        depth_sensor.set_option(rs.option.enable_auto_exposure, 1)
+        xmin, xmax = int(0.05*self.width), int(0.95*self.width)
+        ymin, ymax = int(0.5*self.height), int(0.95*self.height)
+        roi_sensor = depth_sensor.as_roi_sensor()
+        roi = rs.region_of_interest()
+        roi.min_x, roi.min_y = xmin, ymin
+        roi.max_x, roi.max_y = xmax, ymax
+        roi_sensor.set_region_of_interest(roi)
+        
         # Get depth scale of the device
         self.depth_scale =  depth_sensor.get_depth_scale()
         # Create an align object
         align_to = rs.stream.color
         self.align = rs.align(align_to)
 
-        config.enable_stream(rs.stream.depth, self.res_width, self.res_height, rs.format.z16, 30)
-        config.enable_stream(rs.stream.color, self.res_width, self.res_height, rs.format.bgr8, 30)
+        config.enable_stream(rs.stream.depth, self.width, self.height, rs.format.z16, 30)
+        config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, 30)
         
         # Start streaming
         self.pipeline.start(config)
@@ -75,9 +86,9 @@ class RealSenseNode(Node):
             return
         
         
-        color_image = np.asanyarray(color_frame.get_data())
+        #color_image = np.asanyarray(color_frame.get_data())
+        #self.image_pub(color_image)
 
-        self.image_pub(color_image)
         """
         start = time.time()
         
@@ -90,13 +101,13 @@ class RealSenseNode(Node):
         points_xyz = self.depth2PointCloud(depth_frame)
         
         #Ground floor filtering
-        points_xyz = self.ground_filter(points_xyz)
+        #points_xyz = self.ground_filter(points_xyz)
 
         #Additional fltering for performance
         #points_xyz = self.random_subsample(points_xyz, 20000)
 
         #RANSAC segmentation
-        points_xyz = self.RANSAC_segmentation(points_xyz)
+        _, points_xyz = self.RANSAC_segmentation(points_xyz)
 
         #Pointcloud publication
         self.pointcloud_pub(points_xyz)
@@ -165,8 +176,9 @@ class RealSenseNode(Node):
 
         ground_mask = dist <= self.dist_threshold
         ground_points = points[ground_mask]
+        object_points = points[~ground_mask]
 
-        return ground_points
+        return ground_points, object_points
 
     def random_subsample(self, points: np.ndarray, max_points: int = 40000) -> np.ndarray:
         if len(points) <= max_points:
