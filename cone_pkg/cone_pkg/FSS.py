@@ -10,6 +10,7 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2
 from cv_bridge import CvBridge
+import open3d as o3d
 import time
 
 class RealSenseNode(Node):
@@ -19,8 +20,12 @@ class RealSenseNode(Node):
         self.res_width = 640
         self.res_height = 480
         self.clip_dist = 3.0
-        self.zmax = 0.05
-        self.zmin = -0.1
+        self.zmax = 0.3
+        self.zmin = -0.3
+        #RANSAC parameters
+        self.dist_threshold = 0.05
+        self.ransac_n = 3
+        self.num_iterations = 1000
 
         self.bridge = CvBridge()
         
@@ -69,11 +74,11 @@ class RealSenseNode(Node):
         if not depth_frame or not color_frame:
             return
         
-        """
+        
         color_image = np.asanyarray(color_frame.get_data())
 
         self.image_pub(color_image)
-        
+        """
         start = time.time()
         
         end = time.time()
@@ -89,6 +94,9 @@ class RealSenseNode(Node):
 
         #Additional fltering for performance
         #points_xyz = self.random_subsample(points_xyz, 20000)
+
+        #RANSAC segmentation
+        points_xyz = self.RANSAC_segmentation(points_xyz)
 
         #Pointcloud publication
         self.pointcloud_pub(points_xyz)
@@ -140,6 +148,25 @@ class RealSenseNode(Node):
             return points
         mask = (points[:,2] >= self.zmin) & (points[:,2] <= self.zmax)
         return points[mask]
+    
+    def RANSAC_segmentation(self, points):
+        if len(points) == 0:
+            return points
+        
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+
+        plane_model, inliers = pcd.segment_plane(self.dist_threshold, self.ransac_n, self.num_iterations)
+        a, b, c, d = plane_model
+
+        normal = np.array([a, b, c], dtype=np.float64)
+        normal_norm = np.linalg.norm(normal) + 1e-12
+        dist = np.abs(points @ normal + d) / normal_norm
+
+        ground_mask = dist <= self.dist_threshold
+        ground_points = points[ground_mask]
+
+        return ground_points
 
     def random_subsample(self, points: np.ndarray, max_points: int = 40000) -> np.ndarray:
         if len(points) <= max_points:
