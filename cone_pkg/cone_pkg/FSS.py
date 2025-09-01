@@ -20,19 +20,29 @@ class RealSenseNode(Node):
         self.width = 640
         self.height = 480
         self.clip_dist = 3.0
-        self.zmax = 0.3
-        self.zmin = -0.3
+        self.zmax = 0.2
+        self.zmin = 0.05
+        self.vehicle_width = 0.3
+
         #RANSAC parameters
         self.dist_threshold = 0.05
         self.ransac_n = 3
         self.num_iterations = 1000
 
+        #FGM parameters
+        self.fov_deg = 90.0
+        self.bin_deg = 1.0
+        self.margin = 0.1
+        self.lookahead = 1.5
+        self.safe_dist = 2.0
+
         self.bridge = CvBridge()
         
         # ROS 2 Publisher
         self.image_publish = self.create_publisher(Image, "/gray_image", 1)
-        self.cloud_publish = self.create_publisher(PointCloud2, "/free_space", 1)
+        self.cloud_publish = self.create_publisher(PointCloud2, "/pointcloud", 1)
         self.marker_publish= self.create_publisher(Marker, "/car",1)
+        self.target_publish= self.create_publisher(Marker, "/target",1)
 
         #Stereo Camera
         # Configure depth and color streams
@@ -108,6 +118,17 @@ class RealSenseNode(Node):
 
         #RANSAC segmentation
         _, points_xyz = self.RANSAC_segmentation(points_xyz)
+        points_xyz = self.ground_filter(points_xyz)
+
+        target = self.FGM(points_xyz)
+        if target is None:
+            #self.get_logger().info("Nincs target!")
+            pass
+        else:
+            tx, ty = float(target[0]), float(target[1])
+            self.target_pub(tx,ty)
+            #self.get_logger().info(f"X: {tx:.3f}, Y: {ty:.3f}")
+        
 
         #Pointcloud publication
         self.pointcloud_pub(points_xyz)
@@ -179,6 +200,78 @@ class RealSenseNode(Node):
         object_points = points[~ground_mask]
 
         return ground_points, object_points
+    
+    def FGM(self, points):
+        if points is None or points.size == 0:
+            return None
+
+        # --- 1) Polár transzformáció ---
+        pts2 = points[:, :2] if points.shape[1] >= 2 else points.copy()
+        x, y = pts2[:, 0], pts2[:, 1]
+        theta = np.arctan2(y, x)          # rad
+        r = np.hypot(x, y)                # m
+
+        # --- 2) FOV maszkolás ---
+        fov = np.deg2rad(self.fov_deg)
+        half = fov / 2.0
+        mask = (theta >= -half) & (theta <= +half)
+        if not np.any(mask):
+            self.get_logger().info("Empty mask.")
+            return None
+        theta = theta[mask]; r = r[mask]
+
+        # --- 3) Binezés + per-bin minimum távolság ---
+        bin_size = np.deg2rad(self.bin_deg)
+        nbins = int(np.ceil(fov / bin_size))
+        idx = np.clip(((theta + half) / bin_size).astype(int), 0, nbins - 1)
+
+        rmin = np.full(nbins, np.inf, dtype=np.float32)
+        np.minimum.at(rmin, idx, r)
+
+        occupied = np.zeros(nbins, dtype=bool)
+        for i, ri in enumerate(rmin):
+            if np.isfinite(ri) and ri <=self.safe_dist:
+                occupied[i] = True 
+
+        # --- 5) Szabad rések detektálása ---
+        free = ~occupied
+        if not np.any(free):
+            self.get_logger().info("There is no gap.")
+            return None
+
+        best_lo = best_hi = -1
+        best_len = 0
+        i = 0
+        while i < nbins:
+            if not free[i]:
+                i += 1
+                continue
+            j = i
+            while j < nbins and free[j]:
+                j += 1
+            if (j - i) > best_len:
+                best_len = j - i
+                best_lo, best_hi = i, j   # [i, j)
+            i = j
+
+        if best_len <= 0:
+            self.get_logger().info("Best length is null.")
+            return None
+
+        # --- 6) Rés-szélesség ellenőrzése a lookahead távolságon ---
+        ang_width = best_len * bin_size
+        gap_width = 2.0 * self.lookahead * np.sin(ang_width / 2.0)
+        
+        if gap_width < (self.vehicle_width + 2.0 * self.margin):
+            self.get_logger().info(f"Gap: {gap_width:.3f}")
+            return None
+
+        # --- 7) Célpont a rés közepén, a lookahead körön ---
+        center_idx = (best_lo + best_hi - 1) / 2.0
+        theta_star = (center_idx + 0.5) * bin_size - half
+        target = np.array([self.lookahead * np.cos(theta_star),self.lookahead * np.sin(theta_star)], dtype=np.float32)
+
+        return target
 
     def random_subsample(self, points: np.ndarray, max_points: int = 40000) -> np.ndarray:
         if len(points) <= max_points:
@@ -221,6 +314,41 @@ class RealSenseNode(Node):
         robot_marker.lifetime = Duration(seconds=0.1).to_msg()
 
         self.marker_publish.publish(robot_marker)
+
+    def target_pub(self, x,y):
+        point_marker = Marker()
+
+        point_marker.header.frame_id = "map"
+        point_marker.ns = "target_point"
+        point_marker.id = 1
+        point_marker.type = Marker.SPHERE
+        point_marker.action = Marker.ADD
+
+        #Position
+        point_marker.pose.position.x = x
+        point_marker.pose.position.y = y
+        point_marker.pose.position.z = 0.0
+
+        #Orientation
+        point_marker.pose.orientation.x = 0.0
+        point_marker.pose.orientation.y = 0.0
+        point_marker.pose.orientation.z = 0.0
+        point_marker.pose.orientation.w = 1.0 
+
+        #Size
+        point_marker.scale.x = 0.1
+        point_marker.scale.y = 0.1
+        point_marker.scale.z = 0.1
+            
+        #Color
+        point_marker.color.a = 1.0
+        point_marker.color.r = 0.0
+        point_marker.color.g = 1.0
+        point_marker.color.b = 0.0
+
+        point_marker.lifetime = Duration(seconds=0.1).to_msg()
+
+        self.marker_publish.publish(point_marker)
 
     
     def shutdown(self):
