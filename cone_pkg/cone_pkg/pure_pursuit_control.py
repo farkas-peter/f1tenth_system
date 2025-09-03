@@ -12,7 +12,7 @@ class PurePursuitLocal(Node):
     def __init__(self):
         super().__init__('pure_pursuit_local_node')
         self.cnt = 1.0
-        self.lookahead_parameter = 1.1
+        self.lookahead_parameter = 1.25
         self.wheelbase = 0.33
         self.constant_speed = 2.0
 

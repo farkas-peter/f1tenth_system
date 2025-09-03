@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
+from geometry_msgs.msg import Point
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
@@ -22,16 +23,19 @@ class RealSenseNode(Node):
         self.clip_dist = 3.0
         self.zmax = 0.2
         self.zmin = 0.05
+        self.zwall = 0.3
         self.vehicle_width = 0.3
 
         #RANSAC parameters
         self.dist_threshold = 0.05
         self.ransac_n = 3
         self.num_iterations = 1000
+        self.tilt_tolerance = 10.0
+        self.max_planes = 3
 
         #FGM parameters
         self.fov_deg = 90.0
-        self.bin_deg = 1.0
+        self.bin_deg = 0.5
         self.margin = 0.1
         self.lookahead = 1.5
         self.safe_dist = 2.0
@@ -42,7 +46,8 @@ class RealSenseNode(Node):
         self.image_publish = self.create_publisher(Image, "/gray_image", 1)
         self.cloud_publish = self.create_publisher(PointCloud2, "/pointcloud", 1)
         self.marker_publish= self.create_publisher(Marker, "/car",1)
-        self.target_publish= self.create_publisher(Marker, "/target",1)
+        self.target_publish= self.create_publisher(Marker, "/target_vis",1)
+        self.point_pub = self.create_publisher(Point,"/target_point",10)
 
         #Stereo Camera
         # Configure depth and color streams
@@ -109,9 +114,6 @@ class RealSenseNode(Node):
 
         #Image points to 3D points
         points_xyz = self.depth2PointCloud(depth_frame)
-        
-        #Ground floor filtering
-        #points_xyz = self.ground_filter(points_xyz)
 
         #Additional fltering for performance
         #points_xyz = self.random_subsample(points_xyz, 20000)
@@ -120,16 +122,21 @@ class RealSenseNode(Node):
         _, points_xyz = self.RANSAC_segmentation(points_xyz)
         points_xyz = self.ground_filter(points_xyz)
 
+        
         target = self.FGM(points_xyz)
         if target is None:
             #self.get_logger().info("Nincs target!")
             pass
         else:
             tx, ty = float(target[0]), float(target[1])
+            target_point = Point()
+            target_point.x = tx
+            target_point.y = ty
+            target_point.z = 0.0
+            self.point_pub.publish(target_point)
             self.target_pub(tx,ty)
             #self.get_logger().info(f"X: {tx:.3f}, Y: {ty:.3f}")
         
-
         #Pointcloud publication
         self.pointcloud_pub(points_xyz)
 
@@ -183,14 +190,35 @@ class RealSenseNode(Node):
     
     def RANSAC_segmentation(self, points):
         if len(points) == 0:
-            return points
+            return points, points
         
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(points)
 
-        plane_model, inliers = pcd.segment_plane(self.dist_threshold, self.ransac_n, self.num_iterations)
-        a, b, c, d = plane_model
+        z_axis = np.array([0.0, 0.0, 1.0])
+        chosen_plane = None
 
+        for i in range(self.max_planes):
+            if len(np.asarray(pcd.points)) < 50:
+                break
+
+            plane_model, inliers = pcd.segment_plane(self.dist_threshold, self.ransac_n, self.num_iterations)
+            a, b, c, d = plane_model
+            normal = np.array([a, b, c], dtype=np.float64)
+            normal /= np.linalg.norm(normal) + 1e-12
+
+            angle = np.degrees(np.arccos(np.clip(abs(np.dot(normal, z_axis)), -1.0, 1.0)))
+
+            if angle <= self.tilt_tolerance:
+                chosen_plane = plane_model
+                break
+
+            pcd = pcd.select_by_index(inliers, invert=True)
+
+        if chosen_plane is None:
+            return points, points
+
+        a, b, c, d = chosen_plane
         normal = np.array([a, b, c], dtype=np.float64)
         normal_norm = np.linalg.norm(normal) + 1e-12
         dist = np.abs(points @ normal + d) / normal_norm
@@ -202,8 +230,11 @@ class RealSenseNode(Node):
         return ground_points, object_points
     
     def FGM(self, points):
-        if points is None or points.size == 0:
+        if points is None:
             return None
+        
+        if points.size == 0:
+            return np.array([1.5,0.0])
 
         # --- 1) Polár transzformáció ---
         pts2 = points[:, :2] if points.shape[1] >= 2 else points.copy()
@@ -217,7 +248,7 @@ class RealSenseNode(Node):
         mask = (theta >= -half) & (theta <= +half)
         if not np.any(mask):
             self.get_logger().info("Empty mask.")
-            return None
+            return np.array([1.5,0.0])
         theta = theta[mask]; r = r[mask]
 
         # --- 3) Binezés + per-bin minimum távolság ---
@@ -263,7 +294,7 @@ class RealSenseNode(Node):
         gap_width = 2.0 * self.lookahead * np.sin(ang_width / 2.0)
         
         if gap_width < (self.vehicle_width + 2.0 * self.margin):
-            self.get_logger().info(f"Gap: {gap_width:.3f}")
+            #self.get_logger().info(f"Gap: {gap_width:.3f}")
             return None
 
         # --- 7) Célpont a rés közepén, a lookahead körön ---
