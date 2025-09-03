@@ -23,7 +23,6 @@ class RealSenseNode(Node):
         self.clip_dist = 3.0
         self.zmax = 0.2
         self.zmin = 0.05
-        self.zwall = 0.3
         self.vehicle_width = 0.3
 
         #RANSAC parameters
@@ -34,15 +33,17 @@ class RealSenseNode(Node):
         self.max_planes = 3
 
         #FGM parameters
-        self.fov_deg = 90.0
+        self.fov_deg = 60.0
         self.bin_deg = 0.5
         self.margin = 0.1
-        self.lookahead = 1.5
-        self.safe_dist = 2.0
+        self.min_lookahead = 1.0
+        self.def_lookahead = 1.5
+        self.max_lookahead = 3.0
+        self.safe_dist = 3.0
 
         self.bridge = CvBridge()
         
-        # ROS 2 Publisher
+        # ROS 2 Publishers
         self.image_publish = self.create_publisher(Image, "/gray_image", 1)
         self.cloud_publish = self.create_publisher(PointCloud2, "/pointcloud", 1)
         self.marker_publish= self.create_publisher(Marker, "/car",1)
@@ -122,10 +123,10 @@ class RealSenseNode(Node):
         _, points_xyz = self.RANSAC_segmentation(points_xyz)
         points_xyz = self.ground_filter(points_xyz)
 
-        
+        #Follow-the-Gap-Method
         target = self.FGM(points_xyz)
         if target is None:
-            #self.get_logger().info("Nincs target!")
+            #self.get_logger().info("Target not found!")
             pass
         else:
             tx, ty = float(target[0]), float(target[1])
@@ -236,13 +237,13 @@ class RealSenseNode(Node):
         if points.size == 0:
             return np.array([1.5,0.0])
 
-        # --- 1) Polár transzformáció ---
+        #Polar transformation
         pts2 = points[:, :2] if points.shape[1] >= 2 else points.copy()
         x, y = pts2[:, 0], pts2[:, 1]
-        theta = np.arctan2(y, x)          # rad
-        r = np.hypot(x, y)                # m
+        theta = np.arctan2(y, x)
+        r = np.hypot(x, y)
 
-        # --- 2) FOV maszkolás ---
+        #FOV masking
         fov = np.deg2rad(self.fov_deg)
         half = fov / 2.0
         mask = (theta >= -half) & (theta <= +half)
@@ -251,7 +252,7 @@ class RealSenseNode(Node):
             return np.array([1.5,0.0])
         theta = theta[mask]; r = r[mask]
 
-        # --- 3) Binezés + per-bin minimum távolság ---
+        #Create of bins and point sorting
         bin_size = np.deg2rad(self.bin_deg)
         nbins = int(np.ceil(fov / bin_size))
         idx = np.clip(((theta + half) / bin_size).astype(int), 0, nbins - 1)
@@ -260,11 +261,13 @@ class RealSenseNode(Node):
         np.minimum.at(rmin, idx, r)
 
         occupied = np.zeros(nbins, dtype=bool)
+        occupied_r = np.full(nbins, np.nan, dtype=np.float32)
         for i, ri in enumerate(rmin):
             if np.isfinite(ri) and ri <=self.safe_dist:
                 occupied[i] = True 
+                occupied_r[i] = ri
 
-        # --- 5) Szabad rések detektálása ---
+        #Detect of gaps
         free = ~occupied
         if not np.any(free):
             self.get_logger().info("There is no gap.")
@@ -288,19 +291,47 @@ class RealSenseNode(Node):
         if best_len <= 0:
             self.get_logger().info("Best length is null.")
             return None
+        
+        #Dynamic lookahead distance
+        left_index = best_lo - 1 if best_lo - 1 >= 0 else None
+        rigth_index = best_hi if best_hi < nbins else None
 
-        # --- 6) Rés-szélesség ellenőrzése a lookahead távolságon ---
+        r_left = occupied_r[left_index] if left_index is not None else np.nan
+        r_right = occupied_r[rigth_index] if rigth_index is not None else np.nan
+
+        same_r = False
+        if np.isnan(r_left):
+            if np.isnan(r_right):
+                same_r = True
+            else:
+                r_left = r_right
+
+        if np.isnan(r_right):
+            if np.isnan(r_left):
+                same_r = True
+            else:
+                r_right = r_left
+
+        r_mean = 0.0
+        if (same_r):
+            r_mean = self.def_lookahead
+        else:
+            r_mean = (r_left+r_right) / 2.0
+
+        dyn_lookahead = float(np.clip(r_mean, self.min_lookahead, self.max_lookahead))
+
+        #Gap width checking on lookahead distance
         ang_width = best_len * bin_size
-        gap_width = 2.0 * self.lookahead * np.sin(ang_width / 2.0)
+        gap_width = 2.0 * dyn_lookahead * np.sin(ang_width / 2.0)
         
         if gap_width < (self.vehicle_width + 2.0 * self.margin):
             #self.get_logger().info(f"Gap: {gap_width:.3f}")
             return None
 
-        # --- 7) Célpont a rés közepén, a lookahead körön ---
+        #Target point calculating in the middle of the gap
         center_idx = (best_lo + best_hi - 1) / 2.0
         theta_star = (center_idx + 0.5) * bin_size - half
-        target = np.array([self.lookahead * np.cos(theta_star),self.lookahead * np.sin(theta_star)], dtype=np.float32)
+        target = np.array([dyn_lookahead * np.cos(theta_star), dyn_lookahead * np.sin(theta_star)], dtype=np.float32)
 
         return target
 
@@ -349,6 +380,7 @@ class RealSenseNode(Node):
     def target_pub(self, x,y):
         point_marker = Marker()
 
+        #Point
         point_marker.header.frame_id = "map"
         point_marker.ns = "target_point"
         point_marker.id = 1
