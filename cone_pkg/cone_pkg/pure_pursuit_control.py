@@ -26,6 +26,7 @@ class PurePursuitLocal(Node):
         self.drive_pub = self.create_publisher(AckermannDriveStamped, '/drive', 10)
 
         self.create_timer(0.033, self.control_loop)
+        self.get_logger().info("PPC node started.")
 
     def enable_cb(self, msg):
         self.enabled = msg.data
