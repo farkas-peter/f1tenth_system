@@ -33,7 +33,7 @@ class RealSenseNode(Node):
         self.max_planes = 3
 
         #FGM parameters
-        self.fov_deg = 60.0
+        self.fov_deg = 87.0
         self.bin_deg = 0.5
         self.margin = 0.1
         self.min_lookahead = 1.0
@@ -73,12 +73,9 @@ class RealSenseNode(Node):
         
         # Get depth scale of the device
         self.depth_scale =  depth_sensor.get_depth_scale()
-        # Create an align object
-        align_to = rs.stream.color
-        self.align = rs.align(align_to)
 
         config.enable_stream(rs.stream.depth, self.width, self.height, rs.format.z16, 30)
-        config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, 30)
+        #config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, 30)
         
         # Start streaming
         self.pipeline.start(config)
@@ -94,13 +91,11 @@ class RealSenseNode(Node):
         self.decimate = rs.decimation_filter()
         self.decimate.set_option(rs.option.filter_magnitude, 2)
 
-        aligned_frames = self.align.process(frames)
-        depth_frame = aligned_frames.get_depth_frame()
+        depth_frame = frames.get_depth_frame()
         depth_frame = self.decimate.process(depth_frame)
-        color_frame = aligned_frames.get_color_frame()
-        if not depth_frame or not color_frame:
+        #color_frame = frames.get_color_frame()
+        if not depth_frame:
             return
-        
         
         #color_image = np.asanyarray(color_frame.get_data())
         #self.image_pub(color_image)
@@ -248,7 +243,7 @@ class RealSenseNode(Node):
         half = fov / 2.0
         mask = (theta >= -half) & (theta <= +half)
         if not np.any(mask):
-            self.get_logger().info("Empty mask.")
+            #self.get_logger().info("Empty mask.")
             return np.array([1.5,0.0])
         theta = theta[mask]; r = r[mask]
 
@@ -270,7 +265,7 @@ class RealSenseNode(Node):
         #Detect of gaps
         free = ~occupied
         if not np.any(free):
-            self.get_logger().info("There is no gap.")
+            #self.get_logger().info("There is no gap.")
             return None
 
         best_lo = best_hi = -1
@@ -289,7 +284,7 @@ class RealSenseNode(Node):
             i = j
 
         if best_len <= 0:
-            self.get_logger().info("Best length is null.")
+            #self.get_logger().info("Best length is null.")
             return None
         
         #Dynamic lookahead distance
