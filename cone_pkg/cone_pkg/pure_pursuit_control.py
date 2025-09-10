@@ -56,9 +56,8 @@ class PurePursuitLocal(Node):
         if self.target_point is None:
             return
         
-        
-        if self.last_target_time is None or (self.get_clock().now() - self.last_target_time).nanoseconds > 2e8:
-            #self.get_logger().warn("Nincs friss target_point üzenet!")
+        if self.last_target_time is None or (self.get_clock().now() - self.last_target_time).nanoseconds > 5e8:
+            #self.get_logger().warn("There is no new target_point!")
             drive_msg.drive.speed = 0.0
             drive_msg.drive.steering_angle = 0.0
 
@@ -71,7 +70,7 @@ class PurePursuitLocal(Node):
             distance = math.sqrt(x ** 2 + y ** 2)
 
             if distance < 0.1:
-                self.get_logger().info('Cél túl közel, nem vezérelünk.')
+                self.get_logger().info("Target is too close.")
                 return
             
             input_speed = self.constant_speed * self.cnt
