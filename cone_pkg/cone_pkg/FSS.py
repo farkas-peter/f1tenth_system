@@ -20,7 +20,7 @@ class RealSenseNode(Node):
         #Parameters
         self.width = 640
         self.height = 480
-        self.clip_dist = 3.0
+        self.clip_dist = 2.0
         self.zmax = 0.2
         self.zmin = 0.05
         self.vehicle_width = 0.3
@@ -38,8 +38,8 @@ class RealSenseNode(Node):
         self.margin = 0.1
         self.min_lookahead = 1.0
         self.def_lookahead = 1.5
-        self.max_lookahead = 3.0
-        self.safe_dist = 3.0
+        self.max_lookahead = 2.0
+        self.safe_dist = 2.0
 
         self.bridge = CvBridge()
         
@@ -112,7 +112,7 @@ class RealSenseNode(Node):
         points_xyz = self.depth2PointCloud(depth_frame)
 
         #Additional fltering for performance
-        #points_xyz = self.random_subsample(points_xyz, 20000)
+        points_xyz = self.random_subsample(points_xyz, 20000)
 
         #RANSAC segmentation
         _, points_xyz = self.RANSAC_segmentation(points_xyz)
@@ -280,7 +280,7 @@ class RealSenseNode(Node):
                 j += 1
             if (j - i) > best_len:
                 best_len = j - i
-                best_lo, best_hi = i, j   # [i, j)
+                best_lo, best_hi = i, j
             i = j
 
         if best_len <= 0:
@@ -322,6 +322,7 @@ class RealSenseNode(Node):
         if gap_width < (self.vehicle_width + 2.0 * self.margin):
             #self.get_logger().info(f"Gap: {gap_width:.3f}")
             return None
+        #self.get_logger().info(f"Gap: {gap_width:.3f}")
 
         #Target point calculating in the middle of the gap
         center_idx = (best_lo + best_hi - 1) / 2.0
@@ -347,7 +348,7 @@ class RealSenseNode(Node):
         robot_marker.action = Marker.ADD
 
         #Position
-        robot_marker.pose.position.x = 0.0
+        robot_marker.pose.position.x = -0.15
         robot_marker.pose.position.y = 0.0
         robot_marker.pose.position.z = 0.075
 
@@ -411,7 +412,7 @@ class RealSenseNode(Node):
     
     def shutdown(self):
         self.pipeline.stop()
-        self.get_logger().info("RealSense node stopped.")
+        self.get_logger().info("FSS node stopped.")
 
 
 def main(args=None):
