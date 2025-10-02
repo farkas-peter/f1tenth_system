@@ -9,7 +9,7 @@ import json
 import sys
  
 # ---- Gemini API Setup ----
-API_KEY = "AIzaSyAGfiNgUfZ5kLyM3TKUTDw-sBRStjUvujY"
+API_KEY = ""
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-2.5-flash")
  
