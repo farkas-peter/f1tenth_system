@@ -165,8 +165,8 @@ def generate_launch_description():
     #ld.add_action(static_tf_node)
     #ld.add_action(drive_publisher_node)
     ld.add_action(pure_pursuit_control_node)
-    ld.add_action(intel_yolo_node)
+    #ld.add_action(intel_yolo_node)
     #ld.add_action(ekf_node)
-    #ld.add_action(FSS_node)
+    ld.add_action(FSS_node)
 
     return ld
