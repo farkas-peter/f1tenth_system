@@ -25,7 +25,8 @@ setup(
             'intel_yolo = cone_pkg.intel_yolo:main',
             'data_logger = cone_pkg.data_logger:main',
             'ekf = cone_pkg.ekf:main',
-            'FSS = cone_pkg.FSS:main'
+            'FSS = cone_pkg.FSS:main',
+            'video_recorder = cone_pkg.video_recorder:main'
         ],
     },
 )
