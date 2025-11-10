@@ -66,7 +66,7 @@ class RealSenseNode(Node):
         
         frames = self.pipeline.wait_for_frames()
 
-        self.imu_publication(frames)    
+        #self.imu_publication(frames)    
 
         aligned_frames = self.align.process(frames)
 
@@ -148,9 +148,9 @@ class RealSenseNode(Node):
         return det_annotated, center_points
             
     def image_pub(self,det_annotated):
-        scaled_image = cv2.resize(det_annotated, (320, 180), interpolation=cv2.INTER_AREA)
-        gray_scaled_image = cv2.cvtColor(scaled_image, cv2.COLOR_BGR2GRAY)
-        self.det_image_pub.publish(self.bridge.cv2_to_imgmsg(gray_scaled_image, encoding="mono8"))
+        scaled_image = cv2.resize(det_annotated, (480, 240), interpolation=cv2.INTER_AREA)
+        #gray_scaled_image = cv2.cvtColor(scaled_image, cv2.COLOR_BGR2GRAY)
+        self.det_image_pub.publish(self.bridge.cv2_to_imgmsg(scaled_image, encoding="bgr8"))
             
     def pixel_to_point(self,center_points, current_dataset, aligned_depth_frame):
         #Pixels to 3D coordinates
@@ -174,12 +174,15 @@ class RealSenseNode(Node):
             key=lambda p: p[0]**2 + p[1]**2 + p[2]**2  # Nincs sqrt, elég a négyzetes távolság
         )
 
+        # Dinamikus lookahead distance
+        ld = np.clip(self.distance((0,0,0),closest_point), 1.0, 3.0)
+
         # Ha nem (0,0,0) a pont, akkor publikáljuk
         if closest_point != (0, 0, 0):
             point_to_pub = Point()
             point_to_pub.x = float(closest_point[0])
             point_to_pub.y = float(closest_point[1])
-            point_to_pub.z = float(closest_point[2])
+            point_to_pub.z = float(ld)
             self.point_pub.publish(point_to_pub)
 
             
