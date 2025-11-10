@@ -20,7 +20,7 @@ class RealSenseNode(Node):
         #Parameters
         self.width = 640
         self.height = 480
-        self.clip_dist = 2.0
+        self.clip_dist = 3.0
         self.zmax = 0.2
         self.zmin = 0.05
         self.vehicle_width = 0.3
@@ -37,8 +37,8 @@ class RealSenseNode(Node):
         self.bin_deg = 0.5
         self.margin = 0.1
         self.min_lookahead = 1.0
-        self.def_lookahead = 1.5
-        self.max_lookahead = 2.0
+        self.def_lookahead = 2.0
+        self.max_lookahead = 3.0
         self.safe_dist = 2.0
 
         self.bridge = CvBridge()
@@ -75,7 +75,7 @@ class RealSenseNode(Node):
         self.depth_scale =  depth_sensor.get_depth_scale()
 
         config.enable_stream(rs.stream.depth, self.width, self.height, rs.format.z16, 30)
-        #config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, 30)
+        config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, 30)
         
         # Start streaming
         self.pipeline.start(config)
@@ -93,12 +93,12 @@ class RealSenseNode(Node):
 
         depth_frame = frames.get_depth_frame()
         depth_frame = self.decimate.process(depth_frame)
-        #color_frame = frames.get_color_frame()
+        color_frame = frames.get_color_frame()
         if not depth_frame:
             return
         
-        #color_image = np.asanyarray(color_frame.get_data())
-        #self.image_pub(color_image)
+        color_image = np.asanyarray(color_frame.get_data())
+        self.image_pub(color_image)
 
         """
         start = time.time()
@@ -124,11 +124,11 @@ class RealSenseNode(Node):
             #self.get_logger().info("Target not found!")
             pass
         else:
-            tx, ty = float(target[0]), float(target[1])
+            tx, ty, ld = float(target[0]), float(target[1]), float(target[2])
             target_point = Point()
             target_point.x = tx
             target_point.y = ty
-            target_point.z = 0.0
+            target_point.z = ld #dynamic lookahead distance, not z 
             self.point_pub.publish(target_point)
             self.target_pub(tx,ty)
             #self.get_logger().info(f"X: {tx:.3f}, Y: {ty:.3f}")
@@ -165,9 +165,9 @@ class RealSenseNode(Node):
         return pointsxyz
 
     def image_pub(self, color_image):
-        scaled_image = cv2.resize(color_image, (320, 180), interpolation=cv2.INTER_AREA)
-        gray_scaled_image = cv2.cvtColor(scaled_image, cv2.COLOR_BGR2GRAY)
-        self.image_publish.publish(self.bridge.cv2_to_imgmsg(gray_scaled_image, encoding="mono8"))
+        scaled_image = cv2.resize(color_image, (480, 240), interpolation=cv2.INTER_AREA)
+        #gray_scaled_image = cv2.cvtColor(scaled_image, cv2.COLOR_BGR2GRAY)
+        self.image_publish.publish(self.bridge.cv2_to_imgmsg(scaled_image, encoding="bgr8"))
 
     def pointcloud_pub(self, points):
         header = Header()
@@ -327,7 +327,7 @@ class RealSenseNode(Node):
         #Target point calculating in the middle of the gap
         center_idx = (best_lo + best_hi - 1) / 2.0
         theta_star = (center_idx + 0.5) * bin_size - half
-        target = np.array([dyn_lookahead * np.cos(theta_star), dyn_lookahead * np.sin(theta_star)], dtype=np.float32)
+        target = np.array([dyn_lookahead * np.cos(theta_star), dyn_lookahead * np.sin(theta_star), dyn_lookahead], dtype=np.float32)
 
         return target
 
