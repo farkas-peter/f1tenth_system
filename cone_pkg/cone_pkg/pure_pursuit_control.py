@@ -12,7 +12,7 @@ class PurePursuitLocal(Node):
     def __init__(self):
         super().__init__('pure_pursuit_local_node')
         self.cnt = 1.0
-        self.lookahead_parameter = 1.25
+        self.lookahead_distance = 1.5
         self.wheelbase = 0.33
         self.constant_speed = 2.0
 
@@ -67,6 +67,7 @@ class PurePursuitLocal(Node):
         if self.enabled:
             x = self.target_point.x
             y = self.target_point.y
+            self.lookahead_distance = self.target_point.z
             distance = math.sqrt(x ** 2 + y ** 2)
 
             if distance < 0.1:
@@ -74,9 +75,8 @@ class PurePursuitLocal(Node):
                 return
             
             input_speed = self.constant_speed * self.cnt
-            lookahead_distance = (self.lookahead_parameter * input_speed) - (input_speed - 1.0)
             alpha = math.atan2(y,x)
-            curvature = (2*math.sin(alpha))/(lookahead_distance)
+            curvature = (2*math.sin(alpha))/(self.lookahead_distance)
             steering_angle = math.atan(self.wheelbase*curvature)
             
             drive_msg.drive.speed = input_speed
