@@ -11,7 +11,7 @@ from google.genai import types
 
 load_dotenv()
 
-class Agent:
+class GeminiAgent:
     def __init__(self):
         # Gemini
         self.client = genai.Client()
@@ -99,9 +99,18 @@ class Agent:
 
         return response.text
 
+    def run_pipeline(self, audio_filepath):
+        # Run the full pipeline: audio -> object description -> camera image -> object detection
+        obj_description = self.get_obj_desc_from_audio(audio_filepath)
+        image = self.capture_image()
+        bounding_box = self.detect_object(obj_description, image)
+
+        return bounding_box
+
 
 if __name__ == "__main__":
     agent = Agent()
+    agent = GeminiAgent()
 
     img = Image.open("/workspace/src/f1tenth_system/agents_pkg/random_objects.png")
 
