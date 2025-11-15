@@ -14,8 +14,8 @@ load_dotenv()
 class GeminiAgent:
     def __init__(self):
         # Gemini
-        self.client = genai.Client()
-        self.config = types.GenerateContentConfig(response_mime_type="application/json")
+        self.gemini_model = "gemini-2.5-flash"
+        self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
         # Camera
         self.cam_pipeline = rs.pipeline()
