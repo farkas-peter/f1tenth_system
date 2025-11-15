@@ -109,7 +109,8 @@ class GeminiAgent:
 
     def test_pipeline(self, audio_filepath):
         obj_description = self.get_obj_desc_from_audio(audio_filepath)
-        image = Image.open("random_objects.png")
+        image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "random_objects.png")
+        image = Image.open(image_path)
         bounding_box = self.detect_object(obj_description, image)
 
         return bounding_box
@@ -118,10 +119,12 @@ class GeminiAgent:
 if __name__ == "__main__":
     agent = GeminiAgent()
 
-    img = Image.open("/workspace/src/f1tenth_system/agents_pkg/random_objects.png")
+    # Read image from camera
+    # img = agent.capture_image()
 
-    image = agent.capture_image()
-    image = Image.fromarray(image)
+    # Test image
+    img_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "random_objects.png")
+    img = Image.open(img_path)
 
     #obj = agent.get_obj_desc_from_audio("temp_audio.wav")
     bbs = agent.detect_object("object above the pizza", img, visualize=True)

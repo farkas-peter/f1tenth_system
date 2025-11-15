@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np
 import requests
@@ -15,19 +16,23 @@ def visualize_result(image, bounding_boxes):
 
 
 if __name__ == "__main__":
+    # Get a hello from the server
     response = requests.get("http://127.0.0.1:8000/hello")
     print("Server response:", response.text)
 
+    # Send audio file path to the server for processing
     response = requests.post(
         "http://127.0.0.1:8000/run_agent_pipeline",
         json={"path": "temp_audio.wav"}
     )
     response = response.json()
-
     print("Server response:", response)
 
+    # Load the image and visualize the bb
+    img_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "random_objects.png")
+    img = Image.open(img_path)
+
     bbs = response.get("bb_list", [])
-    img = Image.open("random_objects.png")
     visualize_result(img, bbs)
 
 
