@@ -107,6 +107,13 @@ class GeminiAgent:
 
         return bounding_box
 
+    def test_pipeline(self, audio_filepath):
+        obj_description = self.get_obj_desc_from_audio(audio_filepath)
+        image = Image.open("random_objects.png")
+        bounding_box = self.detect_object(obj_description, image)
+
+        return bounding_box
+
 
 if __name__ == "__main__":
     agent = GeminiAgent()
