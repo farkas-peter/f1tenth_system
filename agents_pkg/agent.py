@@ -109,7 +109,6 @@ class GeminiAgent:
 
 
 if __name__ == "__main__":
-    agent = Agent()
     agent = GeminiAgent()
 
     img = Image.open("/workspace/src/f1tenth_system/agents_pkg/random_objects.png")
