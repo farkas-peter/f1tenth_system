@@ -72,6 +72,8 @@ class Agent:
         color_frame = frames.get_color_frame()
         color_image = np.asanyarray(color_frame.get_data())
 
+        # todo: maybe the pipeline should be stopped so the other script can use it
+
         return Image.fromarray(color_image)
 
     def get_obj_desc_from_audio(self, audio_filepath):
