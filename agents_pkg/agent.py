@@ -101,7 +101,7 @@ class Agent:
 if __name__ == "__main__":
     agent = Agent()
 
-    image = Image.open("/workspace/src/f1tenth_system/agents_pkg/random_objects.png")
+    img = Image.open("/workspace/src/f1tenth_system/agents_pkg/random_objects.png")
 
     image = agent.capture_image()
     image = Image.fromarray(image)
