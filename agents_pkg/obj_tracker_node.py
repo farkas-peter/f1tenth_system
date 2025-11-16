@@ -10,6 +10,10 @@ class ObjTrackerNode(Node):
     def __init__(self):
         super().__init__('obj_tracker_node')
 
+        # Initialize variables
+        self.bbox = None
+        self.tracker = None
+
         # Camera variables
         self.pipeline = rs.pipeline()
         config = rs.config()
@@ -19,7 +23,7 @@ class ObjTrackerNode(Node):
         self.align = rs.align(rs.stream.color)
 
         # ROS2 variables
-        self.subscription = self.create_subscription(String, '/my_topic', self.listener_callback, 10)
+        self.bbox_sub = self.create_subscription(String, '/my_topic', self.bbox_callback, 10)
         self.timer = self.create_timer(0.033, self.camera_callback)  # 30 FPS
 
         self.get_logger().info("ObjTrackerNode node started.")
@@ -35,10 +39,26 @@ class ObjTrackerNode(Node):
         if not depth_frame or not color_frame:
             return
 
+        color_image = np.asanyarray(color_frame.get_data())
+
+        if self.bbox is not None and self.tracker is None:
+            self.tracker = cv2.legacy.TrackerCSRT_create()
+            initialized = self.tracker.init(color_image, self.bbox)
+
+        if self.tracker is not None:
+            ok, self.bbox = self.tracker.update(color_frame)
+
+            if ok:
+                x, y, w, h = map(int, self.bbox)
+                cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            else:
+                self.get_logger().info("Tracking lost. Please provide a new bounding box.")
+                self.tracker = None
+                self.bbox = None
+
         # Visualize
-        color_np_image = np.asanyarray(color_frame.get_data())
         cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-        cv2.imshow('RealSense', color_np_image)
+        cv2.imshow('RealSense', color_image)
         cv2.waitKey(1)
 
         # todo: When the node started, let's save an image for obj detection
@@ -59,9 +79,14 @@ class ObjTrackerNode(Node):
                 # Tracker should be initialized again
                 pass
 
-    def listener_callback(self, msg):
+    def bbox_callback(self, msg):
+        # Received a detected bbox
         data = msg.data  # store message
         self.get_logger().info(f"Received: {data}")
+
+        bbox = msg.data
+        converted_bbox = bbox # todo: convert bbox from (x1, y1, x2, y2) to (x, y, w, h)
+        self.bbox = converted_bbox  # self.bbox = (x, y, w, h)
 
     def shutdown(self):
         self.pipeline.stop()
