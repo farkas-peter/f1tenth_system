@@ -21,8 +21,7 @@ def hello():
 @app.post("/run_agent_pipeline", response_model=BoundingBoxes)
 def run_agent_pipeline(data: AudioPath):
     print("Processing audio:", data.path)
-    bbs = agent.test_pipeline(data.path)
-    # bbs = agent.run_pipeline(data.path)
+    bbs = agent.run_pipeline(data.path)
 
     return BoundingBoxes(bb_list=bbs)
 

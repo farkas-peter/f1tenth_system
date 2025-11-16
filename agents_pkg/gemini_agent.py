@@ -3,7 +3,6 @@ import json
 
 import cv2
 import numpy as np
-import pyrealsense2 as rs
 from PIL import Image
 from dotenv import load_dotenv
 from google import genai
@@ -16,12 +15,6 @@ class GeminiAgent:
         # Gemini
         self.gemini_model = "gemini-2.5-flash"
         self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-
-        # Camera
-        self.cam_pipeline = rs.pipeline()
-        cam_config = rs.config()
-        cam_config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-        self.cam_pipeline.start(cam_config)
     
     def detect_object(self, obj_to_detect, image, visualize=False):
         # Detect object in image using Gemini
@@ -66,16 +59,6 @@ class GeminiAgent:
         cv2.imshow("Detected Objects", cv_image)
         cv2.waitKey(0)
 
-    def capture_image(self):
-        # Captures frame from RealSense camera
-        frames = self.cam_pipeline.wait_for_frames()
-        color_frame = frames.get_color_frame()
-        color_image = np.asanyarray(color_frame.get_data())
-
-        # todo: maybe the pipeline should be stopped so the other script can use it
-
-        return Image.fromarray(color_image)
-
     def get_obj_desc_from_audio(self, audio_filepath):
         # Get object description from an audio file using Gemini
         prompt = f"""
@@ -101,13 +84,6 @@ class GeminiAgent:
 
     def run_pipeline(self, audio_filepath):
         # Run the full pipeline: audio -> object description -> camera image -> object detection
-        obj_description = self.get_obj_desc_from_audio(audio_filepath)
-        image = self.capture_image()
-        bounding_box = self.detect_object(obj_description, image)
-
-        return bounding_box
-
-    def test_pipeline(self, audio_filepath):
         obj_description = self.get_obj_desc_from_audio(audio_filepath)
         image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "random_objects.png")
         image = Image.open(image_path)
