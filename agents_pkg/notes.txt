@@ -1,16 +1,15 @@
 /usr/bin/python3.9 -m pip install google-genai dotenv opencv-contrib-python pillow pyrealsense2 sounddevice scipy pydantic fastapi uvicorn
 
-RecordSpeechNode:
+SpeechToObjDetectionNode:
 - waits with input() until user types a duration in seconds
 - then records audio from microphone for that duration
 - saves the audio to a WAV file
-- publishes the file path to a ROS2 topic
+- it calls the GeminiAgent server with the audio file path
+- receives back the BBox of the detected object
+- publishes the BBox to a ROS2 topic
 
-SpeechToObjNode:
-- subscribes to the ROS2 topic for audio file paths
-- if it receives a msg on that topic, it calls the GeminiAgent server with the audio file path
-- receives the BBox of the detected object
 
+ObjTrackerNode:
 - when a BBox is received
 - initializes the tracker
 - in the camera_callback, the tracker is updated with each new frame
