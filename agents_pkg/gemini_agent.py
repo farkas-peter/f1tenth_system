@@ -85,6 +85,7 @@ class GeminiAgent:
     def run_pipeline(self, audio_filepath):
         # Run the full pipeline: audio -> object description -> camera image -> object detection
         obj_description = self.get_obj_desc_from_audio(audio_filepath)
+        # todo: captured image name
         image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "random_objects.png")
         image = Image.open(image_path)
         bounding_box = self.detect_object(obj_description, image)
