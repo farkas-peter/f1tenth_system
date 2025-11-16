@@ -9,7 +9,7 @@ from scipy.io.wavfile import write
 import time
 from tqdm import tqdm
  
-def record_webcam_audio(filename="audio.wav", duration=5, samplerate=48000):
+def record_webcam_audio(filename="temp_audio.wav", duration=5, samplerate=48000):
     # Find the webcam mic
     devices = sd.query_devices()
     mic_index = None
