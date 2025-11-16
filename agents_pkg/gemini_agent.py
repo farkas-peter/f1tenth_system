@@ -68,6 +68,7 @@ class GeminiAgent:
         Return only a short clean phrase describing the search target.
         """
 
+        audio_filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), audio_filepath)
         with open(audio_filepath, 'rb') as f:
             audio_bytes = f.read()
 
