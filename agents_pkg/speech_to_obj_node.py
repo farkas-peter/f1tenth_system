@@ -88,15 +88,6 @@ class SpeechToObject(Node):
                 # Tracker should be initialized again
                 pass
 
-    def bbox_callback(self, msg):
-        # Received a detected bbox
-        data = msg.data  # store message
-        self.get_logger().info(f"Received: {data}")
-
-        bbox = msg.data
-        converted_bbox = bbox # todo: convert bbox from (x1, y1, x2, y2) to (x, y, w, h)
-        self.bbox = converted_bbox  # self.bbox = (x, y, w, h)
-
     def joy_callback(self, msg):
         if msg.buttons[7] == 1 and not self.busy:
             self.busy = True
@@ -137,6 +128,7 @@ class SpeechToObject(Node):
     
     @staticmethod
     def gemini_bbox_to_csrt_bbox(bbox):
+        # Converts [x1, y1, x2, y2] to [x1, y1, w, h]
         x1, y1, x2, y2 = bbox
         w = x2 - x1
         h = y2 - y1
