@@ -1,10 +1,19 @@
 import cv2
+import os
+import time
+import requests
 import pyrealsense2 as rs
 import numpy as np
+import copy
+from PIL import Image
+from concurrent.futures import ThreadPoolExecutor
 
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+from sensor_msgs.msg import Joy
+
+from webcam_audio_rec import record_webcam_audio
 
 class ObjTrackerNode(Node):
     def __init__(self):
@@ -13,6 +22,9 @@ class ObjTrackerNode(Node):
         # Initialize variables
         self.bbox = None
         self.tracker = None
+        self.busy = False
+
+        self.thread_executor = ThreadPoolExecutor(max_workers=2)
 
         # Camera variables
         self.pipeline = rs.pipeline()
@@ -23,7 +35,7 @@ class ObjTrackerNode(Node):
         self.align = rs.align(rs.stream.color)
 
         # ROS2 variables
-        self.bbox_sub = self.create_subscription(String, '/my_topic', self.bbox_callback, 10)
+        self.joy_sub = self.create_subscription(Joy, '/joy', self.joy_callback, 10)
         self.timer = self.create_timer(0.033, self.camera_callback)  # 30 FPS
 
         self.get_logger().info("ObjTrackerNode node started.")
@@ -40,8 +52,8 @@ class ObjTrackerNode(Node):
             return
 
         color_image = np.asanyarray(color_frame.get_data())
-
-        if self.bbox is not None and self.tracker is None:
+        # todo: rmv and False!!!
+        if self.bbox is not None and self.tracker is None and False:
             self.tracker = cv2.legacy.TrackerCSRT_create()
             initialized = self.tracker.init(color_image, self.bbox)
 
@@ -60,9 +72,6 @@ class ObjTrackerNode(Node):
         cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
         cv2.imshow('RealSense', color_image)
         cv2.waitKey(1)
-
-        # todo: When the node started, let's save an image for obj detection
-
 
     def tracking(self, frame, bbox):
         tracker = cv2.legacy.TrackerCSRT_create()
@@ -87,6 +96,51 @@ class ObjTrackerNode(Node):
         bbox = msg.data
         converted_bbox = bbox # todo: convert bbox from (x1, y1, x2, y2) to (x, y, w, h)
         self.bbox = converted_bbox  # self.bbox = (x, y, w, h)
+
+    def joy_callback(self, msg):
+        if msg.buttons[7] == 1 and not self.busy:
+            self.busy = True
+            self.get_logger().info("Start button pressed!")
+            self.thread_executor.submit(self.run_speech_to_obj_det)
+
+
+    def run_speech_to_obj_det(self):
+        try:
+            audio_path = record_webcam_audio(duration=3, filename="temp_audio.wav")
+            self.get_logger().info(f"Recorded audio saved at: {audio_path}")
+
+
+            bbox = self.call_gemini_agent(audio_path)
+            self.get_logger().info(f"Bbox from Gemini agent: {bbox} {type(bbox[0])}")
+
+            self.bbox = copy.deepcopy(bbox)
+            self.busy = False
+
+        except Exception as e:
+            self.get_logger().error(f'Error in audio worker: {e}')
+
+        finally:
+            self.get_logger().info('Speech to object detection task completed.')
+            self.busy = False
+
+    def call_gemini_agent(self, audio_path):
+        # Send audio file path to the Gemini server for processing
+        response = requests.post(
+            "http://127.0.0.1:8000/run_agent_pipeline",
+            json={"path": audio_path}
+        )
+
+        bbox = response.json().get("bb_list", [])
+        bbox = self.gemini_bbox_to_csrt_bbox(bbox[0])
+
+        return bbox
+    
+    @staticmethod
+    def gemini_bbox_to_csrt_bbox(bbox):
+        x1, y1, x2, y2 = bbox
+        w = x2 - x1
+        h = y2 - y1
+        return [x1, y1, w, h]
 
     def shutdown(self):
         self.pipeline.stop()
