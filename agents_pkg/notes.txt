@@ -1,19 +1,11 @@
-/usr/bin/python3.9 -m pip install google-genai dotenv opencv-contrib-python pillow pyrealsense2 sounddevice scipy pydantic fastapi uvicorn
-
-SpeechToObjDetectionNode:
-- waits with input() until user types a duration in seconds
-- then records audio from microphone for that duration
-- saves the audio to a WAV file
-- it calls the GeminiAgent server with the audio file path
-- receives back the BBox of the detected object
-- publishes the BBox to a ROS2 topic
+/usr/bin/python3.9 -m pip install google-genai dotenv opencv-contrib-python pillow pyrealsense2 sounddevice scipy tqdm pydantic fastapi uvicorn
 
 
-ObjTrackerNode:
-- when a BBox is received
-- initializes the tracker
-- in the camera_callback, the tracker is updated with each new frame
-- the middle point of the BBox is calculated
-- steering angle can be derived from the middle point of the BBox
-     - use the aligned frame, so PP can be used (if dist < 0.2m: car should stop)
-     - use the pixel based control (stopping should be solved somehow)
+Gemini Server:
+/workspace/.venv/bin/python /workspace/src/f1tenth_system/agents_pkg/gemini_server.py
+
+Node:
+/bin/python3 speech_to_obj_node.py
+
+Joy:
+ros2 run joy joy_node
