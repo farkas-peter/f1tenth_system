@@ -8,6 +8,7 @@ import sounddevice as sd
 from scipy.io.wavfile import write
 import time
 from tqdm import tqdm
+import os
  
 def record_webcam_audio(filename="temp_audio.wav", duration=5, samplerate=48000):
     # Find the webcam mic
@@ -32,10 +33,14 @@ def record_webcam_audio(filename="temp_audio.wav", duration=5, samplerate=48000)
         time.sleep(1)
  
     sd.wait()
-    write(filename, samplerate, audio)
+    filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
+    write(filepath, samplerate, audio)
     print(f"Saved recording to {filename}")
 
     return filename
 
 if __name__ == '__main__':
-    record_webcam_audio()
+    audio_file = record_webcam_audio()
+    # check if the file is created
+    
+    print(os.path.exists(audio_file))
