@@ -11,3 +11,10 @@ ros2 run joy joy_node
 3. Node:
 /bin/python3 speech_to_obj_node.py
 /bin/python3 /workspace/src/f1tenth_system/agents_pkg/speech_to_obj_node.py
+
+TODO:
+- publish image based steering angle OR target point for PP
+- stop the vehicle when the point is close enough
+
+- start the node, press START, object is being tracked
+- press X and the car starts
