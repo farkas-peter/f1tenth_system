@@ -13,7 +13,7 @@ load_dotenv()
 class GeminiAgent:
     def __init__(self):
         # Gemini
-        self.gemini_model = "gemini-2.5-flash"
+        self.gemini_model = "gemini-2.5-flash-lite"
         self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     
     def detect_object(self, obj_to_detect, image, visualize=False):
