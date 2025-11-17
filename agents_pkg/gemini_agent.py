@@ -88,7 +88,7 @@ class GeminiAgent:
         obj_description = self.get_obj_desc_from_audio(audio_filepath)
         bounding_box = self.detect_object(obj_description, image)
 
-        return bounding_box
+        return obj_description, bounding_box
 
 
 if __name__ == "__main__":

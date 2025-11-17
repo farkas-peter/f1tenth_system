@@ -25,6 +25,7 @@ class SpeechToObject(Node):
         self.bbox = None
         self.tracker = None
         self.busy = False
+        self.prev_back_button = 0
 
         self.thread_executor = ThreadPoolExecutor(max_workers=2)
 
@@ -54,16 +55,17 @@ class SpeechToObject(Node):
             return
 
         color_image = np.asanyarray(color_frame.get_data())
-        # todo: rmv and False!!!
-        if self.bbox is not None and self.tracker is None and False:
+
+        if self.bbox is not None and self.tracker is None:
             self.tracker = cv2.legacy.TrackerCSRT_create()
-            initialized = self.tracker.init(color_imagObjTrackerNodee, self.bbox)
+            initialized = self.tracker.init(color_image, self.bbox)
 
         if self.tracker is not None:
-            ok, self.bbox = self.tracker.update(color_frame)
+            ok, self.bbox = self.tracker.update(color_image)
 
             if ok:
-                x, y, w, h = map(int, self.bbox)
+                x, y, w, h = self.bbox
+                x, y, w, h = int(x), int(y), int(w), int(h)
                 cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
             else:
                 self.get_logger().info("Tracking lost. Please provide a new bounding box.")
@@ -71,7 +73,7 @@ class SpeechToObject(Node):
                 self.bbox = None
 
         # Visualize
-        if False:
+        if True:
             cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('RealSense', color_image)
             cv2.waitKey(1)
@@ -92,25 +94,33 @@ class SpeechToObject(Node):
                 pass
 
     def joy_callback(self, msg):
+        # For the Start button, start the speech to object detection process
         if msg.buttons[7] == 1 and not self.busy:
             self.busy = True
-            self.get_logger().info("Start button pressed!")
+            self.get_logger().info("START: Starting speech to object pipeline.")
             self.thread_executor.submit(self.run_speech_to_obj_det)
+        
+        # For the back button, clean the tracker and bbox
+        back_now = msg.buttons[6]
+        if self.prev_back_button == 0 and back_now == 1:
+            self.get_logger().info("BACK: Resetting tracker.")
+            self.tracker = None
+            self.bbox = None
+            self.prev_back_button = back_now
 
 
     def run_speech_to_obj_det(self):
         try:
             # Record audio from webcam
             audio_path = record_webcam_audio(duration=3, filename="temp_audio.wav")
-            self.get_logger().info(f"Recorded audio saved at: {audio_path}")
 
             # Capture image from camera
             color_image = self.capture_one_cam_img()
             base64_image = self.numpy_image_to_base64(color_image)
 
             # Call Gemini agent server to process audio and get bounding box
-            bbox = self.call_gemini_agent(audio_path, base64_image)
-            self.get_logger().info(f"Bbox from Gemini agent: {bbox} {type(bbox[0])}")
+            desc, bbox = self.call_gemini_agent(audio_path, base64_image)
+            self.get_logger().info(f"Answer from Gemini: {desc} | {bbox}")
 
             # Set variables
             self.bbox = copy.deepcopy(bbox)
@@ -130,11 +140,14 @@ class SpeechToObject(Node):
             json={"audio_path": audio_path,
                   "base64_image": base64_image}
         )
+        response = response.json()
 
-        bbox = response.json().get("bb_list", [])
+        # Unpack the response
+        desc = response.get("description", "")
+        bbox = response.get("bb_list", [])
         bbox = self.gemini_bbox_to_csrt_bbox(bbox[0])
 
-        return bbox
+        return desc, bbox
     
     def capture_one_cam_img(self):
         # Capture an image from the camera

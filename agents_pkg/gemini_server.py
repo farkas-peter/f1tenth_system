@@ -12,7 +12,8 @@ class PipelineInput(BaseModel):
     audio_path: str
     base64_image: str
 
-class BoundingBoxes(BaseModel):
+class ObjectInfo(BaseModel):
+    description: str
     bb_list: list[list[int]]
 
 def decode_base64_to_pil(base64_str: str) -> Image.Image:
@@ -30,16 +31,16 @@ agent = GeminiAgent()
 def hello():
     return "hello, i am the gemini agent server :)"
 
-@app.post("/run_agent_pipeline", response_model=BoundingBoxes)
+@app.post("/run_agent_pipeline", response_model=ObjectInfo)
 def run_agent_pipeline(data: PipelineInput):
     pil_img = decode_base64_to_pil(data.base64_image)
     
     print("Decoded image size:", pil_img.size)
     print("Processing audio:", data.audio_path)
 
-    bbs = agent.run_pipeline(data.audio_path, pil_img)
+    obj_desc, bbs = agent.run_pipeline(data.audio_path, pil_img)
 
-    return BoundingBoxes(bb_list=bbs)
+    return ObjectInfo(description = obj_desc, bb_list=bbs)
 
 
 if __name__ == "__main__":
