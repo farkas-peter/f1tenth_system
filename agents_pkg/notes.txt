@@ -1,11 +1,13 @@
-/usr/bin/python3.9 -m pip install google-genai dotenv opencv-contrib-python pillow pyrealsense2 sounddevice scipy tqdm pydantic fastapi uvicorn
+Required packages:
+pip install google-genai dotenv opencv-contrib-python pillow pyrealsense2 sounddevice scipy tqdm pydantic fastapi uvicorn
 
 
-Gemini Server:
+1. Joy:
+ros2 run joy joy_node
+
+2. Gemini Server:
 /workspace/.venv/bin/python /workspace/src/f1tenth_system/agents_pkg/gemini_server.py
 
-Node:
+3. Node:
 /bin/python3 speech_to_obj_node.py
-
-Joy:
-ros2 run joy joy_node
+/bin/python3 /workspace/src/f1tenth_system/agents_pkg/speech_to_obj_node.py
