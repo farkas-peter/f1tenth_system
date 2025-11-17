@@ -21,9 +21,11 @@ if __name__ == "__main__":
     print("Server response:", response.text)
 
     # Send audio file path to the server for processing
+    # todo: pass base64 image!!!
     response = requests.post(
         "http://127.0.0.1:8000/run_agent_pipeline",
-        json={"path": "temp_audio.wav"}
+        json={"audio_path": "temp_audio.wav",
+              "base64_image": ""}
     )
     response = response.json()
     print("Server response:", response)
