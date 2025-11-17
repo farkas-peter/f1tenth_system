@@ -64,9 +64,10 @@ class SpeechToObject(Node):
             ok, self.bbox = self.tracker.update(color_image)
 
             if ok:
-                x, y, w, h = self.bbox
-                x, y, w, h = int(x), int(y), int(w), int(h)
+                x, y, w, h = map(int, self.bbox)
                 cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                steering = self.compute_steering()
+                cv2.putText(color_image, f"Steering: {steering:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
             else:
                 self.get_logger().info("Tracking lost. Please provide a new bounding box.")
                 self.tracker = None
@@ -107,7 +108,6 @@ class SpeechToObject(Node):
             self.tracker = None
             self.bbox = None
             self.prev_back_button = back_now
-
 
     def run_speech_to_obj_det(self):
         try:
@@ -188,6 +188,15 @@ class SpeechToObject(Node):
         w = x2 - x1
         h = y2 - y1
         return [x1, y1, w, h]
+    
+    def compute_steering(self, frame_width=848, Kp=0.5):
+        x, y, w, h = map(int, self.bbox)
+        bbox_center = x + w / 2
+        x_center = frame_width / 2
+        error = (bbox_center - x_center) / (frame_width / 2)
+        steering = Kp * error
+
+        return max(-1, min(1, steering))
 
     def shutdown(self):
         self.pipeline.stop()
