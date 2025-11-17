@@ -106,14 +106,10 @@ class SpeechToObject(Node):
 
             # Capture image from camera
             color_image = self.capture_one_cam_img()
-            #self.get_logger().info(type(color_image))
-            #base64_image = self.encode_np_image_to_base64(color_image)
-            cv2.imshow("Captured Image", color_image)
-            cv2.waitKey(0)
+            base64_image = self.numpy_image_to_base64(color_image)
 
             # Call Gemini agent server to process audio and get bounding box
-            #bbox = self.call_gemini_agent(audio_path, base64_image)
-            bbox = [100, 100, 200, 200]  # Dummy bbox for testing
+            bbox = self.call_gemini_agent(audio_path, base64_image)
             self.get_logger().info(f"Bbox from Gemini agent: {bbox} {type(bbox[0])}")
 
             # Set variables
@@ -148,18 +144,29 @@ class SpeechToObject(Node):
         color_frame = aligned_frames.get_color_frame()
         color_image = np.asanyarray(color_frame.get_data())
 
-        self.get_logger().info(f"image type: {type(color_image)}, shape: {color_image.shape}")
-
         return color_image
     
-    def encode_np_image_to_base64(img: np.ndarray, format: str = "PNG") -> str:
-        # Encode a NumPy image array (H, W, C) into a base64 string.
-        pil_img = Image.fromarray(img.astype("uint8"))
-        buffer = BytesIO()
-        pil_img.save(buffer, format=format)
-        base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    @staticmethod
+    def numpy_image_to_base64(img_array: np.ndarray) -> str:
+        # Convert a NumPy image array (H x W x C) into a Base64 PNG string.
 
-        return base64_image
+        # Ensure array is uint8
+        if img_array.dtype != np.uint8:
+            img_array = img_array.astype(np.uint8)
+
+        # Convert NumPy array to PIL image
+        img = Image.fromarray(img_array)
+
+        # Save to buffer as PNG
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        buffer.seek(0)
+
+        # Encode to base64
+        img_bytes = buffer.getvalue()
+        base64_str = base64.b64encode(img_bytes).decode("utf-8")
+
+        return base64_str
     
     @staticmethod
     def gemini_bbox_to_csrt_bbox(bbox):
