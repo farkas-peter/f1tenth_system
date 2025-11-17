@@ -15,9 +15,9 @@ from sensor_msgs.msg import Joy
 
 from webcam_audio_rec import record_webcam_audio
 
-class ObjTrackerNode(Node):
+class SpeechToObject(Node):
     def __init__(self):
-        super().__init__('obj_tracker_node')
+        super().__init__('speech_to_object_node')
 
         # Initialize variables
         self.bbox = None
@@ -38,7 +38,7 @@ class ObjTrackerNode(Node):
         self.joy_sub = self.create_subscription(Joy, '/joy', self.joy_callback, 10)
         self.timer = self.create_timer(0.033, self.camera_callback)  # 30 FPS
 
-        self.get_logger().info("ObjTrackerNode node started.")
+        self.get_logger().info("SpeechToObject node started.")
 
     def camera_callback(self):
         # Wait for frame and align the color and depth frames
@@ -55,7 +55,7 @@ class ObjTrackerNode(Node):
         # todo: rmv and False!!!
         if self.bbox is not None and self.tracker is None and False:
             self.tracker = cv2.legacy.TrackerCSRT_create()
-            initialized = self.tracker.init(color_image, self.bbox)
+            initialized = self.tracker.init(color_imagObjTrackerNodee, self.bbox)
 
         if self.tracker is not None:
             ok, self.bbox = self.tracker.update(color_frame)
@@ -149,7 +149,7 @@ class ObjTrackerNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = ObjTrackerNode()
+    node = SpeechToObject()
 
     try:
         rclpy.spin(node)
