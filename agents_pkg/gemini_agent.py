@@ -83,7 +83,7 @@ class GeminiAgent:
 
         return response.text
 
-    def run_pipeline(self, audio_filepath):
+    def run_pipeline(self, audio_filepath: str, image: Image.Image):
         # Run the full pipeline: audio -> object description -> camera image -> object detection
         obj_description = self.get_obj_desc_from_audio(audio_filepath)
         # todo: captured image name

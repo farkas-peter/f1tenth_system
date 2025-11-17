@@ -7,6 +7,8 @@ import numpy as np
 import copy
 from PIL import Image
 from concurrent.futures import ThreadPoolExecutor
+import base64
+from io import BytesIO
 
 import rclpy
 from rclpy.node import Node
@@ -69,9 +71,10 @@ class SpeechToObject(Node):
                 self.bbox = None
 
         # Visualize
-        cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-        cv2.imshow('RealSense', color_image)
-        cv2.waitKey(1)
+        if False:
+            cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
+            cv2.imshow('RealSense', color_image)
+            cv2.waitKey(1)
 
     def tracking(self, frame, bbox):
         tracker = cv2.legacy.TrackerCSRT_create()
@@ -97,13 +100,23 @@ class SpeechToObject(Node):
 
     def run_speech_to_obj_det(self):
         try:
+            # Record audio from webcam
             audio_path = record_webcam_audio(duration=3, filename="temp_audio.wav")
             self.get_logger().info(f"Recorded audio saved at: {audio_path}")
 
+            # Capture image from camera
+            color_image = self.capture_one_cam_img()
+            #self.get_logger().info(type(color_image))
+            #base64_image = self.encode_np_image_to_base64(color_image)
+            cv2.imshow("Captured Image", color_image)
+            cv2.waitKey(0)
 
-            bbox = self.call_gemini_agent(audio_path)
+            # Call Gemini agent server to process audio and get bounding box
+            #bbox = self.call_gemini_agent(audio_path, base64_image)
+            bbox = [100, 100, 200, 200]  # Dummy bbox for testing
             self.get_logger().info(f"Bbox from Gemini agent: {bbox} {type(bbox[0])}")
 
+            # Set variables
             self.bbox = copy.deepcopy(bbox)
             self.busy = False
 
@@ -114,17 +127,39 @@ class SpeechToObject(Node):
             self.get_logger().info('Speech to object detection task completed.')
             self.busy = False
 
-    def call_gemini_agent(self, audio_path):
+    def call_gemini_agent(self, audio_path, base64_image):
         # Send audio file path to the Gemini server for processing
         response = requests.post(
             "http://127.0.0.1:8000/run_agent_pipeline",
-            json={"path": audio_path}
+            json={"audio_path": audio_path,
+                  "base64_image": base64_image}
         )
 
         bbox = response.json().get("bb_list", [])
         bbox = self.gemini_bbox_to_csrt_bbox(bbox[0])
 
         return bbox
+    
+    def capture_one_cam_img(self):
+        # Capture an image from the camera
+        frames = self.pipeline.wait_for_frames()
+        aligned_frames = self.align.process(frames)
+
+        color_frame = aligned_frames.get_color_frame()
+        color_image = np.asanyarray(color_frame.get_data())
+
+        self.get_logger().info(f"image type: {type(color_image)}, shape: {color_image.shape}")
+
+        return color_image
+    
+    def encode_np_image_to_base64(img: np.ndarray, format: str = "PNG") -> str:
+        # Encode a NumPy image array (H, W, C) into a base64 string.
+        pil_img = Image.fromarray(img.astype("uint8"))
+        buffer = BytesIO()
+        pil_img.save(buffer, format=format)
+        base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+        return base64_image
     
     @staticmethod
     def gemini_bbox_to_csrt_bbox(bbox):
