@@ -1,0 +1,16 @@
+Required packages:
+pip install google-genai dotenv opencv-contrib-python pillow pyrealsense2 sounddevice scipy tqdm pydantic fastapi uvicorn
+
+
+Joy:
+ros2 run joy joy_node
+
+Node:
+/bin/python3 speech_to_obj_node.py
+/bin/python3 /workspace/src/f1tenth_system/gemini_pkg/gemini_pkg/speech_to_obj_node.py
+
+1. Gemini Server:
+/workspace/.venv/bin/python /workspace/src/f1tenth_system/gemini_pkg/gemini_pkg/gemini_server.py
+
+2. Launch file
+ros2 launch f1tenth_stack gemini_launch.py
