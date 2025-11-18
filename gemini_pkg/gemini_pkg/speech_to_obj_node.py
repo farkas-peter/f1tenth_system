@@ -28,7 +28,7 @@ class SpeechToObject(Node):
         self.tracker = None
         self.busy = False
         self.prev_back_button = 0
-        self.visualize  False
+        self.visualize = False
 
         self.thread_executor = ThreadPoolExecutor(max_workers=2)
 
