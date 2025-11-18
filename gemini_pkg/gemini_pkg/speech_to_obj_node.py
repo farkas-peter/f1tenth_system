@@ -28,6 +28,7 @@ class SpeechToObject(Node):
         self.tracker = None
         self.busy = False
         self.prev_back_button = 0
+        self.visualize  False
 
         self.thread_executor = ThreadPoolExecutor(max_workers=2)
 
@@ -68,23 +69,24 @@ class SpeechToObject(Node):
 
             if ok:
                 x, y, w, h = map(int, self.bbox)
-                cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 steering = self.compute_steering()
-                cv2.putText(color_image, f"Steering: {steering:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
+                if self.visualize:
+                    cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cv2.putText(color_image, f"Steering: {steering:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
 
                 # Get world coordinates of the center of the bounding box
                 center_x = x + w / 2
                 center_y = y + h / 2
                 x_world, y_world, z_world = self.pixel_to_world(center_x, center_y, depth_frame)
                 self.publish_target_point((x_world, y_world, z_world))
-                self.get_logger().info(f"Object World Coordinates: x={round(x_world,2)} m, y={round(y_world,2)} m, z={z_world} m")
+                #self.get_logger().info(f"Object World Coordinates: x={round(x_world,2)} m, y={round(y_world,2)} m, z={z_world} m")
             else:
                 self.get_logger().info("Tracking lost. Please provide a new bounding box.")
                 self.tracker = None
                 self.bbox = None
 
         # Visualize
-        if True:
+        if self.visualize:
             cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('RealSense', color_image)
             cv2.waitKey(1)
@@ -105,6 +107,7 @@ class SpeechToObject(Node):
                 pass
 
     def pixel_to_world(self, x, y, aligned_depth_frame):
+        # Convert pixel coordinates to world coordinates using depth frame
         x = round(x)
         y = round(y)
         dist = aligned_depth_frame.get_distance(x, y)
@@ -121,13 +124,13 @@ class SpeechToObject(Node):
         return np.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2 + (p1[2] - p2[2]) ** 2)
     
     def publish_target_point(self, point):
-        # Dinamikus lookahead distance
+        # Calculate look-ahead distance
         ld = self.distance((0,0,0), point)
 
+        # If the object is too close, do not publish target point, so the car stops
         if ld < 0.5:
             return
 
-        # Ha nem (0,0,0) a pont, akkor publikáljuk
         if point != (0, 0, 0):
             point_to_pub = Point()
             point_to_pub.x = float(point[0])
