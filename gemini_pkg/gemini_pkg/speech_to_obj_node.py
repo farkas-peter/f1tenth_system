@@ -16,6 +16,9 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Point
 
+from sensor_msgs.msg import Image as ROSImage
+from cv_bridge import CvBridge
+
 from .webcam_audio_rec import record_webcam_audio
 
 
@@ -28,7 +31,8 @@ class SpeechToObject(Node):
         self.tracker = None
         self.busy = False
         self.prev_back_button = 0
-        self.visualize = False
+        self.visualize = True
+        self.publish_img = False
 
         self.thread_executor = ThreadPoolExecutor(max_workers=2)
 
@@ -44,6 +48,8 @@ class SpeechToObject(Node):
         self.joy_sub = self.create_subscription(Joy, '/joy', self.joy_callback, 10)
         self.point_pub = self.create_publisher(Point, "/target_point", 10)
         self.timer = self.create_timer(0.033, self.camera_callback)  # 30 FPS
+        self.image_pub = self.create_publisher(ROSImage, 'camera/color/image_raw', 1)
+        self.bridge = CvBridge()
 
         self.get_logger().info("SpeechToObject node started.")
 
@@ -86,10 +92,15 @@ class SpeechToObject(Node):
                 self.bbox = None
 
         # Visualize
-        if self.visualize:
+        if self.visualize and False:
             cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('RealSense', color_image)
             cv2.waitKey(1)
+
+        if self.publish_img:
+            small_image = cv2.resize(color_image, (320, 240), interpolation=cv2.INTER_AREA)
+            ros_img = self.bridge.cv2_to_imgmsg(small_image, encoding='bgr8')
+            self.image_pub.publish(ros_img)
 
     def tracking(self, frame, bbox):
         tracker = cv2.legacy.TrackerCSRT_create()
@@ -128,7 +139,7 @@ class SpeechToObject(Node):
         ld = self.distance((0,0,0), point)
 
         # If the object is too close, do not publish target point, so the car stops
-        if ld < 0.5:
+        if ld < 1.0:
             return
 
         if point != (0, 0, 0):
