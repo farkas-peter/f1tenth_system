@@ -230,7 +230,7 @@ class RealSenseNode(Node):
             return None
         
         if points.size == 0:
-            return np.array([1.5,0.0])
+            return np.array([self.def_lookahead,0.0,self.def_lookahead])
 
         #Polar transformation
         pts2 = points[:, :2] if points.shape[1] >= 2 else points.copy()
@@ -244,7 +244,7 @@ class RealSenseNode(Node):
         mask = (theta >= -half) & (theta <= +half)
         if not np.any(mask):
             #self.get_logger().info("Empty mask.")
-            return np.array([1.5,0.0])
+            return np.array([self.def_lookahead,0.0,self.def_lookahead])
         theta = theta[mask]; r = r[mask]
 
         #Create of bins and point sorting
