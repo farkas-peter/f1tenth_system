@@ -2,10 +2,10 @@ navsat_transform:
   ros__parameters:
     frequency: 10.0
     delay: 0.0
-    magnetic_declination_radians: 0.091  # kb. 5.2 fok ami jellemzo Magyarorszagon, ezt lehet finomhangolni
-    yaw_offset: 1.570796327  # pi/2: ha az IMU 0 foka eszakra mutat (gyakori), akkor ennyi kell, hogy ROS standard legyen (0 fok = kelet)
+    magnetic_declination_radians: 0.0  # Mivel nincs iránytűnk, a GPS iránya már valós földrajzi irány, nem kell mágneses eltolás
+    yaw_offset: 0.0  # Ha a GPS ENU keretben adja a headinget, ez sem kell
     zero_altitude: true
     broadcast_cartesian_transform: true
     publish_filtered_gps: true
-    use_odometry_yaw: false
+    use_odometry_yaw: true
     wait_for_datum: false

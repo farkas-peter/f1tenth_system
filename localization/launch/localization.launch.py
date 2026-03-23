@@ -49,9 +49,25 @@ def generate_launch_description():
         ]
     )
 
+    realsense_imu_node = Node(
+        package='realsense',
+        executable='imu',
+        name='imu_node',
+        output='screen'
+    )
+
+    coord_trans_node = Node(
+        package='coord_trans',
+        executable='coord_trans_node',
+        name='coord_trans_node',
+        output='screen'
+    )
+
     return LaunchDescription([
         ublox_gps_launch,
         ntrip_client_launch,
         ekf_node,
-        navsat_transform_node
+        navsat_transform_node,
+        realsense_imu_node,
+        coord_trans_node
     ])
