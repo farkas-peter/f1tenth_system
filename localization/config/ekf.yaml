@@ -39,13 +39,3 @@ ekf_filter_node:
     imu0_differential: false
     imu0_queue_size: 10
     imu0_remove_gravitational_acceleration: true
-
-    # 4. Bemenet: GPS alapu UTM pose a YAW iranyhoz
-    pose0: /utm_pose
-    pose0_config: [false, false, false,
-                   false, false, true,
-                   false, false, false,
-                   false, false, false,
-                   false, false, false]
-    pose0_differential: false
-    pose0_queue_size: 10

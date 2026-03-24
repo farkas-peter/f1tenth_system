@@ -88,10 +88,10 @@ class RTCMParser:
             self._caching_data = False
             self._buffer = self._buffer[message_length + 5:]
             continue
-          else:
-            self._logwarn('Found packet, but checksums didn\'t match')
-            self._logwarn('Expected Checksum: 0x{:X}'.format(expected_checksum))
-            self._logwarn('Actual Checksum:   0x{:X}'.format(actual_checksum))
+          #else:
+            #self._logwarn('Found packet, but checksums didn\'t match')
+            #self._logwarn('Expected Checksum: 0x{:X}'.format(expected_checksum))
+            #self._logwarn('Actual Checksum:   0x{:X}'.format(actual_checksum))
         else:
           self._logdebug('Found beginning of RTCM packet at {}, but there is not enough data in the buffer to extract it, caching'.format(index))
           self._caching_data = True

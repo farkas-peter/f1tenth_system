@@ -26,6 +26,24 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(ntrip_client_launch_file)
     )
 
+    tf_base_gps = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        arguments=["0.16", "0", "0.7", "0", "0", "0", "base_link", "gps_link"],
+    )
+
+    tf_base_imu = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        arguments=["0.33", "0", "0.8", "0.5", "-0.5", "0.5", "0.5", "base_link", "imu_link"],
+    )
+
+    tf_base_lidar = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        arguments=["0.33", "0", "0.55", "0", "0", "0", "base_link", "lidar_link"],
+    )
+
     # Robot Localization Nodes
     ekf_node = Node(
         package='robot_localization',
@@ -56,18 +74,13 @@ def generate_launch_description():
         output='screen'
     )
 
-    coord_trans_node = Node(
-        package='coord_trans',
-        executable='coord_trans_node',
-        name='coord_trans_node',
-        output='screen'
-    )
-
     return LaunchDescription([
         ublox_gps_launch,
         ntrip_client_launch,
+        tf_base_gps,
+        tf_base_imu,
+        tf_base_lidar,
         ekf_node,
         navsat_transform_node,
-        realsense_imu_node,
-        coord_trans_node
+        realsense_imu_node
     ])
