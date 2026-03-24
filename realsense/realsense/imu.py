@@ -26,7 +26,7 @@ class ImuNode(Node):
 
         imu_msg = Imu()
         imu_msg.header.stamp = self.get_clock().now().to_msg()
-        imu_msg.header.frame_id = 'base_link'
+        imu_msg.header.frame_id = 'imu_link'
         
         imu_msg.orientation_covariance[0] = -1.0
 
