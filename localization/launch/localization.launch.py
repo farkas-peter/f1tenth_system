@@ -26,6 +26,12 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(ntrip_client_launch_file)
     )
 
+    tf_base_map = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        arguments=["0", "0", "0", "0", "0", "0", "map", "odom"],
+    )
+
     tf_base_gps = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
@@ -77,6 +83,7 @@ def generate_launch_description():
     return LaunchDescription([
         ublox_gps_launch,
         ntrip_client_launch,
+        tf_base_map,
         tf_base_gps,
         tf_base_imu,
         tf_base_lidar,
