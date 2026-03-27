@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'coord_trans_node = coord_trans.coord_trans_node:main'
+            'coord_trans_node = coord_trans.coord_trans_node:main',
+            'localization_vis_node = coord_trans.localization_vis_node:main'
         ],
     },
 )

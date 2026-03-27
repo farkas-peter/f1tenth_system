@@ -80,6 +80,13 @@ def generate_launch_description():
         output='screen'
     )
 
+    localization_vis_node = Node(
+        package='coord_trans',
+        executable='localization_vis_node',
+        name='localization_vis_node',
+        output='screen'
+    )
+
     return LaunchDescription([
         ublox_gps_launch,
         ntrip_client_launch,
@@ -89,5 +96,6 @@ def generate_launch_description():
         tf_base_lidar,
         ekf_node,
         navsat_transform_node,
-        realsense_imu_node
+        realsense_imu_node,
+        localization_vis_node
     ])
