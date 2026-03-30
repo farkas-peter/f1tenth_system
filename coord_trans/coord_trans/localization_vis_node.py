@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
 from nav_msgs.msg import Odometry
+from geometry_msgs.msg import PoseWithCovarianceStamped
 from visualization_msgs.msg import MarkerArray, Marker
 import math
 
@@ -13,11 +14,14 @@ class LocalizationVisNode(Node):
         super().__init__('localization_vis_node')
 
         self.odom_sub = self.create_subscription(Odometry, '/odometry/filtered', self.odom_callback, 10)
+        self.utm_sub = self.create_subscription(PoseWithCovarianceStamped, '/utm_pose', self.utm_callback, 10)
         self.loc_vis_pub = self.create_publisher(MarkerArray, '/odometry/filtered_vis', 10)
         self.marker_array = MarkerArray()
         self.id = 0
         self.prev_x = None
         self.prev_y = None
+        self.utm_prev_x = None
+        self.utm_prev_y = None
         self.x = None
         self.y = None
         self.dist_threshold = 0.2
@@ -71,6 +75,52 @@ class LocalizationVisNode(Node):
         self.id += 1
         self.prev_x = x
         self.prev_y = y
+
+    def utm_callback(self, msg: PoseWithCovarianceStamped):
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+
+        if self.utm_prev_x is not None and self.utm_prev_y is not None:
+            dist = math.sqrt((x - self.utm_prev_x) ** 2 + (y - self.utm_prev_y) ** 2)
+            if dist < self.dist_threshold:
+                return
+
+        marker = Marker()
+        marker.header.frame_id = "map"
+        marker.ns = "utm_marker"
+        marker.id = self.id
+        marker.type = Marker.SPHERE
+        marker.action = Marker.ADD
+
+        #Position
+        marker.pose.position.x = x
+        marker.pose.position.y = y
+        marker.pose.position.z = 0.0
+
+        #Orientation
+        marker.pose.orientation.x = 0.0
+        marker.pose.orientation.y = 0.0
+        marker.pose.orientation.z = 0.0
+        marker.pose.orientation.w = 1.0 
+
+        #Size
+        marker.scale.x = 0.1
+        marker.scale.y = 0.1
+        marker.scale.z = 0.1
+        
+        #Color
+        marker.color.a = 1.0
+        marker.color.r = 0.0
+        marker.color.g = 0.0
+        marker.color.b = 1.0
+
+        marker.lifetime = Duration(seconds=0.1).to_msg()
+
+        self.marker_array.markers.append(marker)
+                
+        self.id += 1
+        self.utm_prev_x = x
+        self.utm_prev_y = y
 
     def publish_markers(self):
         self.loc_vis_pub.publish(self.marker_array)

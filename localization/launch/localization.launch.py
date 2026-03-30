@@ -80,6 +80,12 @@ def generate_launch_description():
         output='screen'
     )
 
+    coord_trans_node = Node(
+        package='coord_trans',
+        executable='coord_trans_node',
+        name='coord_trans_node'
+    )
+
     localization_vis_node = Node(
         package='coord_trans',
         executable='localization_vis_node',
@@ -97,5 +103,6 @@ def generate_launch_description():
         ekf_node,
         navsat_transform_node,
         realsense_imu_node,
+        coord_trans_node,
         localization_vis_node
     ])

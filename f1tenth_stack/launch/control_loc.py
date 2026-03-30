@@ -163,6 +163,11 @@ def generate_launch_description():
         executable='FSS',
         name='FSS_node'
     )
+    coord_trans_node = Node(
+        package='coord_trans',
+        executable='coord_trans_node',
+        name='coord_trans_node'
+    )
     
     # finalize
     ld.add_action(joy_node)
@@ -172,6 +177,7 @@ def generate_launch_description():
     ld.add_action(vesc_driver_node)
     ld.add_action(ackermann_mux_node)
     ld.add_action(localization_launch)
+    ld.add_action(coord_trans_node)
     #ld.add_action(throttle_interpolator_node)
     #ld.add_action(urg_node)
     #ld.add_action(static_tf_node)
