@@ -21,7 +21,8 @@ setup(
     entry_points={
         'console_scripts': [
             'coord_trans_node = coord_trans.coord_trans_node:main',
-            'localization_vis_node = coord_trans.localization_vis_node:main'
+            'localization_vis_node = coord_trans.localization_vis_node:main',
+            'gps_eval_node = coord_trans.gps_eval_node:main'
         ],
     },
 )
