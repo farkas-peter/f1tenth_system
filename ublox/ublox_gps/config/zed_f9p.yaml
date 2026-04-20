@@ -4,10 +4,17 @@ ublox_gps_node:
     debug: 0                    # Range 0-4 (0 means no debug statements will print)
     device: /dev/tty_ZED_F9P
     frame_id: gps_link
+    rate: 10.0                  # Measurement rate in Hz (10 Hz = 100ms)
+    nav_rate: 1                 # in number of measurement cycles
     uart1:
-      baudrate: 9600
+      baudrate: 115200
+      in: 35
+      out: 1
+    usb:
+      in: 35
+      out: 1
     # TMODE3 Config
-    tmode3: 1                   # Survey-In Mode
+    tmode3: 0                   # 0 = Disabled (Rover), 1 = Survey-In (Base Station)
     sv_in:
       reset: True               # True: disables and re-enables survey-in (resets)
                                 # False: Disables survey-in only if TMODE3 is
