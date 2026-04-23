@@ -20,9 +20,9 @@ ublox_gps_node:
         all: false
         att: true
         pvt: true
-        relposned: false
+        relposned: true
         status: true
-      nmea: true
+      nmea: false
 
       esf:
         ins: false
