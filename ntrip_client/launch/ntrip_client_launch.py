@@ -12,7 +12,7 @@ def generate_launch_description():
           DeclareLaunchArgument('debug',                 default_value='false'),
           DeclareLaunchArgument('host',                  default_value='gpsmet.agt.bme.hu'),
           DeclareLaunchArgument('port',                  default_value='2101'),
-          DeclareLaunchArgument('mountpoint',            default_value='BME10'),
+          DeclareLaunchArgument('mountpoint',            default_value='BUTE0'),
           DeclareLaunchArgument('ntrip_version',         default_value='None'),
           DeclareLaunchArgument('authenticate',          default_value='True'),
           DeclareLaunchArgument('username',              default_value='BMEKJK01'),
