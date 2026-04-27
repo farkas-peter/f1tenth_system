@@ -4,7 +4,7 @@ import math
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from nav_msgs.msg import Odometry
 from ublox_msgs.msg import NavPVT
 import utm
 
@@ -15,7 +15,7 @@ class CoordTransNode(Node):
         self.subscription = self.create_subscription(NavSatFix, '/fix', self.fix_callback, 10)
         self.navpvt_sub = self.create_subscription(NavPVT, '/navpvt', self.navpvt_callback, 10)
             
-        self.publisher_ = self.create_publisher(PoseWithCovarianceStamped, '/utm_pose', 10)
+        self.publisher_ = self.create_publisher(Odometry, '/gps_odom', 10)
             
         self.origin_x = None
         self.origin_y = None
@@ -26,6 +26,10 @@ class CoordTransNode(Node):
         self.current_yaw = 0.0  # Initial yaw
         self.has_rtk_fix = False
         
+        self.vel_e = 0.0
+        self.vel_n = 0.0
+        self.vel_d = 0.0
+        
         self.get_logger().info("Coord Trans Node started.")
 
     def navpvt_callback(self, msg: NavPVT):
@@ -35,6 +39,10 @@ class CoordTransNode(Node):
             self.has_rtk_fix = True
         else:
             self.has_rtk_fix = False
+            
+        self.vel_e = msg.vel_e / 1000.0
+        self.vel_n = msg.vel_n / 1000.0
+        self.vel_d = msg.vel_d / 1000.0
 
     def fix_callback(self, msg: NavSatFix):
         if math.isnan(msg.latitude) or math.isnan(msg.longitude):
@@ -72,25 +80,32 @@ class CoordTransNode(Node):
                 self.prev_x = easting
                 self.prev_y = northing
                 
-            # Create PoseWithCovarianceStamped message
-            pose_msg = PoseWithCovarianceStamped()
-            pose_msg.header.stamp = self.get_clock().now().to_msg()
-            pose_msg.header.frame_id = "map"
+            # Create Odometry message
+            odom_msg = Odometry()
+            odom_msg.header.stamp = self.get_clock().now().to_msg()
+            odom_msg.header.frame_id = "odom"
+            odom_msg.child_frame_id = "base_link"
             
-            pose_msg.pose.pose.position.x = float(easting - self.origin_x)
-            pose_msg.pose.pose.position.y = float(northing - self.origin_y)
-            pose_msg.pose.pose.position.z = float(alt - self.origin_z)
+            odom_msg.pose.pose.position.x = float(easting - self.origin_x)
+            odom_msg.pose.pose.position.y = float(northing - self.origin_y)
+            odom_msg.pose.pose.position.z = float(alt - self.origin_z)
             
             # Convert yaw to quaternion (Euler to Quaternion where roll=0, pitch=0)
-            pose_msg.pose.pose.orientation.x = 0.0
-            pose_msg.pose.pose.orientation.y = 0.0
-            pose_msg.pose.pose.orientation.z = math.sin(self.current_yaw / 2.0)
-            pose_msg.pose.pose.orientation.w = math.cos(self.current_yaw / 2.0)
+            odom_msg.pose.pose.orientation.x = 0.0
+            odom_msg.pose.pose.orientation.y = 0.0
+            odom_msg.pose.pose.orientation.z = math.sin(self.current_yaw / 2.0)
+            odom_msg.pose.pose.orientation.w = math.cos(self.current_yaw / 2.0)
             
-            # EKF requires non-zero covariance for variables it uses! Index 35 is Yaw.
-            pose_msg.pose.covariance[35] = 0.1
+            # Fill velocity (twist) in base_link frame
+            # Rotate global East/North velocities with -yaw to get long/lat velocities
+            v_x = self.vel_e * math.cos(self.current_yaw) + self.vel_n * math.sin(self.current_yaw)
+            v_y = -self.vel_e * math.sin(self.current_yaw) + self.vel_n * math.cos(self.current_yaw)
             
-            self.publisher_.publish(pose_msg)
+            odom_msg.twist.twist.linear.x = v_x
+            odom_msg.twist.twist.linear.y = v_y
+            odom_msg.twist.twist.linear.z = -self.vel_d  # velD is down, z is up
+            
+            self.publisher_.publish(odom_msg)
             
         except Exception as e:
             self.get_logger().error(f"Error converting coordinates: {e}")
