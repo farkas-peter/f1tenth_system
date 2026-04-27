@@ -74,6 +74,12 @@ def generate_launch_description():
             output='screen'),
 
         Node(
+            package='sllidar_ros2',
+            executable='sllidar_vis_node',
+            name='sllidar_vis_node',
+            output='screen'),
+
+        Node(
             package='rviz2',
             executable='rviz2',
             name='rviz2',

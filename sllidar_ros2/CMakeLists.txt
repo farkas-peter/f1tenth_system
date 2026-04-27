@@ -35,6 +35,10 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 ################################################################################
 # Build
@@ -59,6 +63,16 @@ ament_target_dependencies(sllidar_client
   std_srvs
   sensor_msgs
 )
+
+add_executable(sllidar_vis_node src/sllidar_vis_node.cpp)
+ament_target_dependencies(sllidar_vis_node
+  rclcpp
+  sensor_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  geometry_msgs
+)
 ################################################################################
 # Install
 ################################################################################
@@ -67,7 +81,7 @@ install(DIRECTORY launch rviz
 )
 
 install(
-  TARGETS sllidar_node sllidar_client
+  TARGETS sllidar_node sllidar_client sllidar_vis_node
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
