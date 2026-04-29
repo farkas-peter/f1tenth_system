@@ -2,9 +2,6 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
-#include <tf2_ros/transform_listener.h>
-#include <tf2_ros/buffer.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <cmath>
 
@@ -13,9 +10,6 @@ using std::placeholders::_1;
 class SllidarVisNode : public rclcpp::Node {
 public:
     SllidarVisNode() : Node("sllidar_vis_node") {
-        tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
-        tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-
         scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
             "/scan", rclcpp::SystemDefaultsQoS(),
             std::bind(&SllidarVisNode::scan_callback, this, _1)
@@ -88,8 +82,6 @@ private:
 
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pc_pub_;
-    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 };
 
 int main(int argc, char** argv) {
