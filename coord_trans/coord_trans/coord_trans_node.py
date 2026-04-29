@@ -26,6 +26,11 @@ class CoordTransNode(Node):
         self.current_yaw = 0.0  # Initial yaw
         self.has_rtk_fix = False
         
+        # GPS antenna offset from base_link (must match static TF in launch file)
+        self.gps_offset_x = 0.16  # base_link -> gps_link x offset (forward)
+        self.gps_offset_y = 0.0   # base_link -> gps_link y offset (left)
+        self.gps_offset_z = 0.07  # base_link -> gps_link z offset (up)
+        
         self.vel_e = 0.0
         self.vel_n = 0.0
         self.vel_d = 0.0
@@ -80,15 +85,25 @@ class CoordTransNode(Node):
                 self.prev_x = easting
                 self.prev_y = northing
                 
+            # GPS measures the antenna (gps_link) position, correct to base_link
+            gps_x = float(easting - self.origin_x)
+            gps_y = float(northing - self.origin_y)
+            gps_z = float(alt - self.origin_z)
+            
+            # Subtract the rotated GPS offset to get base_link position
+            base_x = gps_x - self.gps_offset_x * math.cos(self.current_yaw) + self.gps_offset_y * math.sin(self.current_yaw)
+            base_y = gps_y - self.gps_offset_x * math.sin(self.current_yaw) - self.gps_offset_y * math.cos(self.current_yaw)
+            base_z = gps_z - self.gps_offset_z
+            
             # Create Odometry message
             odom_msg = Odometry()
             odom_msg.header.stamp = self.get_clock().now().to_msg()
             odom_msg.header.frame_id = "odom"
             odom_msg.child_frame_id = "base_link"
             
-            odom_msg.pose.pose.position.x = float(easting - self.origin_x)
-            odom_msg.pose.pose.position.y = float(northing - self.origin_y)
-            odom_msg.pose.pose.position.z = float(alt - self.origin_z)
+            odom_msg.pose.pose.position.x = base_x
+            odom_msg.pose.pose.position.y = base_y
+            odom_msg.pose.pose.position.z = base_z
             
             # Convert yaw to quaternion (Euler to Quaternion where roll=0, pitch=0)
             odom_msg.pose.pose.orientation.x = 0.0

@@ -27,22 +27,22 @@ def generate_launch_description():
         arguments=["0", "0", "0", "0", "0", "0", "map", "odom"],
     )
 
-    tf_base_gps = Node(
+    tf_odom_base = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
-        arguments=["0.16", "0", "0.7", "0", "0", "0", "base_link", "gps_link"],
+        arguments=["0", "0", "0", "0", "0", "0", "odom", "base_link"],
     )
 
     tf_base_imu = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
-        arguments=["0.33", "0", "0.8", "0.5", "-0.5", "0.5", "0.5", "base_link", "imu_link"],
+        arguments=["-0.33", "0", "0.08", "0.5", "-0.5", "0.5", "0.5", "base_link", "imu_link"],
     )
 
     tf_base_lidar = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
-        arguments=["0.33", "0", "0.55", "0", "0", "0", "base_link", "lidar_link"],
+        arguments=["-0.33", "0", "0.05", "0", "0", "0", "base_link", "lidar_link"],
     )
 
     coord_trans_node = Node(
@@ -62,7 +62,7 @@ def generate_launch_description():
         ublox_gps_launch,
         ntrip_client_launch,
         tf_base_map,
-        tf_base_gps,
+        tf_odom_base,
         tf_base_imu,
         tf_base_lidar,
         coord_trans_node,
