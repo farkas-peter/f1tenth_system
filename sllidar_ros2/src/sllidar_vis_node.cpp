@@ -32,33 +32,40 @@ private:
     void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
         sensor_msgs::msg::PointCloud2 cloud;
         cloud.header.stamp = msg->header.stamp;
-        cloud.header.frame_id = "map";
+        cloud.header.frame_id = "lidar_link";
 
         sensor_msgs::PointCloud2Modifier modifier(cloud);
         modifier.setPointCloud2FieldsByString(1, "xyz");
 
         std::vector<geometry_msgs::msg::Point> valid_points;
         valid_points.reserve(msg->ranges.size());
-        
-        float angle_limit = 135.0f * M_PI / 180.0f; // 270 degrees total => +/- 135 deg
+
+        float fov = 180.0;
+        float right_limit = fov / 2.0;
+        float left_limit = 360.0 - right_limit;
+        if (msg->ranges.size() == 720)
+        {
+            // Express mode
+            right_limit = right_limit * 2.0;
+            left_limit = 720.0 - right_limit;
+        }
+        else if (msg->ranges.size() == 1080)
+        {
+            // Boost mode
+            right_limit = right_limit * 3.0;
+            left_limit = 1080.0 - right_limit;
+        }
 
         for (size_t i = 0; i < msg->ranges.size(); ++i) {
-            float angle = msg->angle_min + i * msg->angle_increment;
-            
-            // Normalize angle to [-pi, pi]
-            while (angle > M_PI) angle -= 2.0 * M_PI;
-            while (angle < -M_PI) angle += 2.0 * M_PI;
-
-            if (angle >= -angle_limit && angle <= angle_limit) {
+            if (i <= right_limit || i >= left_limit) {
                 float range = msg->ranges[i];
-                if (range >= msg->range_min && range <= msg->range_max) {
-                    geometry_msgs::msg::Point p_map;
-                    p_map.x = range * std::cos(angle);
-                    p_map.y = range * std::sin(angle);
-                    p_map.z = 0.0;
+                float angle = msg->angle_min + i * msg->angle_increment;
+                geometry_msgs::msg::Point p_map;
+                p_map.x = range * std::cos(angle);
+                p_map.y = range * std::sin(angle);
+                p_map.z = 0.0;
 
-                    valid_points.push_back(p_map);
-                }
+                valid_points.push_back(p_map);
             }
         }
 
