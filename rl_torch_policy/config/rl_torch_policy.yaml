@@ -1,0 +1,16 @@
+rl_torch_policy_node:
+  ros__parameters:
+    model_path: "/workspace/LOG/models/exported_policy.pt"
+    goal_topic: "/goal_pose"
+    odom_topic: "/odom"
+    scan_topic: "/scan"
+    steering_topic: "/steering_angle"
+    speed_topic: "/speed"
+    control_rate_hz: 20.0
+    obs_clip: 20.0
+    lidar_num_beams: 32
+    lidar_max_range: 3.5
+    delta_max: 0.45
+    min_speed: 1.0
+    max_speed: 3.0
+    device: "cuda"
