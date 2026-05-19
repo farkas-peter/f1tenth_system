@@ -10,10 +10,11 @@ import torch
 import rclpy
 from rclpy.node import Node
 
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Bool
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
+from ackermann_msgs.msg import AckermannDriveStamped
 
 
 def quaternion_to_yaw(q) -> float:
@@ -105,48 +106,23 @@ class RLTorchPolicyNode(Node):
         # -------------------------
         # ROS interfaces
         # -------------------------
-        self.goal_sub = self.create_subscription(
-            PoseStamped,
-            goal_topic,
-            self.goal_callback,
-            10,
-        )
+        self.goal_sub = self.create_subscription(PoseStamped, goal_topic, self.goal_callback, 10)
 
-        self.odom_sub = self.create_subscription(
-            Odometry,
-            odom_topic,
-            self.odom_callback,
-            10,
-        )
+        self.odom_sub = self.create_subscription(Odometry, odom_topic, self.odom_callback, 10)
 
-        self.scan_sub = self.create_subscription(
-            LaserScan,
-            scan_topic,
-            self.scan_callback,
-            10,
-        )
+        self.scan_sub = self.create_subscription(LaserScan, scan_topic, self.scan_callback, 10)
 
-        self.steering_pub = self.create_publisher(
-            Float32,
-            steering_topic,
-            10,
-        )
+        self.ad_enable_sub = self.create_subscription(Bool, '/autonomous_enable', self.ad_enable_cb, 10)
 
-        self.speed_pub = self.create_publisher(
-            Float32,
-            speed_topic,
-            10,
-        )
+        self.drive_pub = self.create_publisher(AckermannDriveStamped, '/drive', 10)
 
         timer_period = 1.0 / self.control_rate_hz
         self.timer = self.create_timer(timer_period, self.control_loop)
 
         self.get_logger().info("RL Torch policy node started.")
-        self.get_logger().info(f"Subscribed goal: {goal_topic}")
-        self.get_logger().info(f"Subscribed odom: {odom_topic}")
-        self.get_logger().info(f"Subscribed scan: {scan_topic}")
-        self.get_logger().info(f"Publishing steering: {steering_topic}")
-        self.get_logger().info(f"Publishing speed: {speed_topic}")
+        #self.get_logger().info(f"Subscribed goal: {goal_topic}")
+        #self.get_logger().info(f"Subscribed odom: {odom_topic}")
+        #self.get_logger().info(f"Subscribed scan: {scan_topic}")
 
     def goal_callback(self, msg: PoseStamped):
         self.latest_goal = msg
@@ -156,6 +132,17 @@ class RLTorchPolicyNode(Node):
 
     def scan_callback(self, msg: LaserScan):
         self.latest_scan = msg
+
+    def enable_cb(self, msg: Bool):
+        self.ad_mode = msg.data
+
+        if not self.ad_mode:
+            self.stop_vehicle()
+
+    def stop_vehicle(self):
+        msg = AckermannDriveStamped()
+        msg.drive.speed = 0.0
+        self.drive_pub.publish(msg)
 
     def make_observation(self) -> np.ndarray:
         """
@@ -318,19 +305,28 @@ class RLTorchPolicyNode(Node):
         if self.latest_odom is None:
             self.get_logger().warn("No odom received yet.", throttle_duration_sec=2.0)
             return
+        
+        dx= self.latest_odom.pose.pose.position.x - self.latest_goal.pose.position.x
+        dy = self.latest_odom.pose.pose.position.y- self.latest_goal.pose.position.y
+        distance = math.hypot(dx, dy)
+
+        if distance <= 0.5:
+            self.stop_vehicle()
+            return
+        self.get_logger().warn(f"Distance from goal: {distance:.2f}.", throttle_duration_sec=2.0)
+        
+        if not self.ad_mode:
+            return
 
         try:
             obs = self.make_observation()
             steering_angle, speed = self.run_model(obs)
 
-            steering_msg = Float32()
-            steering_msg.data = float(steering_angle)
+            drive_msg = AckermannDriveStamped()
+            drive_msg.drive.speed = speed
+            drive_msg.drive.steering_angle = steering_angle
 
-            speed_msg = Float32()
-            speed_msg.data = float(speed)
-
-            self.steering_pub.publish(steering_msg)
-            self.speed_pub.publish(speed_msg)
+            self.drive_pub.publish(drive_msg)
 
         except Exception as e:
             self.get_logger().error(f"RL inference failed: {e}")
