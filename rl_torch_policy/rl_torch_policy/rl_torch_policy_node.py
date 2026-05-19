@@ -133,7 +133,7 @@ class RLTorchPolicyNode(Node):
     def scan_callback(self, msg: LaserScan):
         self.latest_scan = msg
 
-    def enable_cb(self, msg: Bool):
+    def ad_enable_cb(self, msg: Bool):
         self.ad_mode = msg.data
 
         if not self.ad_mode:
@@ -314,7 +314,7 @@ class RLTorchPolicyNode(Node):
             self.stop_vehicle()
             return
         self.get_logger().warn(f"Distance from goal: {distance:.2f}.", throttle_duration_sec=2.0)
-        
+
         if not self.ad_mode:
             return
 
