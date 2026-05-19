@@ -8,9 +8,9 @@ rl_torch_policy_node:
     speed_topic: "/speed"
     control_rate_hz: 20.0
     obs_clip: 20.0
-    lidar_num_beams: 32
+    lidar_num_beams: 64
     lidar_max_range: 3.5
     delta_max: 0.45
     min_speed: 1.0
     max_speed: 3.0
-    device: "cuda"
+    device: "cpu"

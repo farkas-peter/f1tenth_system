@@ -47,7 +47,7 @@ class RLTorchPolicyNode(Node):
 
         # Ezek egyezzenek a training környezettel.
         self.declare_parameter("obs_clip", 20.0)
-        self.declare_parameter("lidar_num_beams", 32)
+        self.declare_parameter("lidar_num_beams", 64)
         self.declare_parameter("lidar_max_range", 3.5)
 
         # Steering visszaskálázás.
@@ -100,8 +100,10 @@ class RLTorchPolicyNode(Node):
         self.latest_goal: Optional[PoseStamped] = None
         self.latest_odom: Optional[Odometry] = None
         self.latest_scan: Optional[LaserScan] = None
+        self.ad_mode = False
 
         self.prev_delta_norm = 0.0
+        self.prev_v_norm = 0.0
 
         # -------------------------
         # ROS interfaces
@@ -202,6 +204,7 @@ class RLTorchPolicyNode(Node):
                 math.sin(heading_err),
                 math.cos(heading_err),
                 self.prev_delta_norm,
+                self.prev_v_norm
             ],
             dtype=np.float32,
         )
@@ -284,6 +287,7 @@ class RLTorchPolicyNode(Node):
 
         steering_norm = float(np.clip(action[0], -1.0, 1.0))
         speed_norm = float(np.clip(action[1], -1.0, 1.0))
+        self.prev_v_norm = speed_norm
 
         steering_angle = steering_norm * self.delta_max
 
