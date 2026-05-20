@@ -12,6 +12,12 @@ def generate_launch_description():
     ntrip_client_dir = get_package_share_directory('ntrip_client')
     ntrip_client_launch_file = os.path.join(ntrip_client_dir, 'ntrip_client_launch.py')
 
+    sllidar_launch_file = os.path.join(
+        get_package_share_directory('sllidar_ros2'),
+        'launch',
+        'sllidar_a2m8_launch.py'
+    )
+
     # GPS and NTRIP IncludeLaunchDescriptions
     ublox_gps_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(ublox_gps_launch_file)
@@ -19,6 +25,10 @@ def generate_launch_description():
 
     ntrip_client_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(ntrip_client_launch_file)
+    )
+
+    sllidar_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(sllidar_launch_file)
     )
 
     tf_base_map = Node(
@@ -66,5 +76,6 @@ def generate_launch_description():
         tf_base_imu,
         tf_base_lidar,
         coord_trans_node,
-        localization_vis_node
+        localization_vis_node,
+        sllidar_launch
     ])
