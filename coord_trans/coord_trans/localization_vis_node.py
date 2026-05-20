@@ -5,6 +5,7 @@ from rclpy.node import Node
 from rclpy.duration import Duration
 from nav_msgs.msg import Odometry
 from visualization_msgs.msg import MarkerArray, Marker
+from geometry_msgs.msg import PoseStamped
 import math
 
 
@@ -13,6 +14,7 @@ class LocalizationVisNode(Node):
         super().__init__('localization_vis_node')
 
         self.utm_sub = self.create_subscription(Odometry, '/gps_odom', self.utm_callback, 10)
+        self.goal_sub = self.create_subscription(PoseStamped, '/goal_pose', self.goal_callback, 10)
         self.loc_vis_pub = self.create_publisher(MarkerArray, '/trajectory_vis', 10)
         self.marker_array = MarkerArray()
         self.id = 0
@@ -21,10 +23,50 @@ class LocalizationVisNode(Node):
         self.x = None
         self.y = None
         self.dist_threshold = 0.2
+        self.latest_goal = None
 
         self.timer = self.create_timer(0.1, self.publish_markers)
         
         self.get_logger().info("Localization Vis Node started.")
+
+    def goal_callback(self, msg: PoseStamped):
+        self.marker_array.markers.clear()
+
+        goal_x = msg.pose.position.x
+        goal_y = msg.pose.position.y
+
+        goal_radius = Marker()
+        goal_radius.header.frame_id = "map"
+        goal_radius.ns = "goal_radius"
+        goal_radius.id = 0
+        goal_radius.type = Marker.CYLINDER
+        goal_radius.action = Marker.ADD
+
+        #Position
+        goal_radius.pose.position.x = goal_x
+        goal_radius.pose.position.y = goal_y
+        goal_radius.pose.position.z = 0.0
+
+        #Orientation
+        goal_radius.pose.orientation.x = 0.0
+        goal_radius.pose.orientation.y = 0.0
+        goal_radius.pose.orientation.z = 0.0
+        goal_radius.pose.orientation.w = 1.0 
+
+        #Size
+        goal_radius.scale.x = 0.5
+        goal_radius.scale.y = 0.5
+        goal_radius.scale.z = 0.01
+        
+        #Color
+        goal_radius.color.a = 1.0
+        goal_radius.color.r = 0.0
+        goal_radius.color.g = 1.0
+        goal_radius.color.b = 0.0
+
+        goal_radius.lifetime = Duration(seconds=0.1).to_msg()
+
+        self.marker_array.markers.append(goal_radius)
         
     def utm_callback(self, msg: Odometry):
         x = msg.pose.pose.position.x
@@ -37,7 +79,7 @@ class LocalizationVisNode(Node):
 
         marker = Marker()
         marker.header.frame_id = "map"
-        marker.ns = "marker"
+        marker.ns = "trajectory"
         marker.id = self.id
         marker.type = Marker.SPHERE
         marker.action = Marker.ADD
@@ -66,9 +108,9 @@ class LocalizationVisNode(Node):
         ratio = max(0.0, min(speed / 3.0, 1.0))
         
         marker.color.a = 1.0
-        marker.color.r = float(ratio)
-        marker.color.g = 0.0
-        marker.color.b = float(1.0 - ratio)
+        marker.color.r = 0.0
+        marker.color.g = 1.0
+        marker.color.b = 0.0
 
         marker.lifetime = Duration(seconds=0.1).to_msg()
 
