@@ -65,8 +65,6 @@ class RLTorchPolicyNode(Node):
 
         goal_topic = self.get_parameter("goal_topic").value
         odom_topic = self.get_parameter("odom_topic").value
-        steering_topic = self.get_parameter("steering_topic").value
-        speed_topic = self.get_parameter("speed_topic").value
         scan_topic = self.get_parameter("scan_topic").value
 
         self.control_rate_hz = float(self.get_parameter("control_rate_hz").value)
@@ -317,7 +315,7 @@ class RLTorchPolicyNode(Node):
         if distance <= 0.5:
             self.stop_vehicle()
             return
-        self.get_logger().warn(f"Distance from goal: {distance:.2f}.", throttle_duration_sec=2.0)
+        self.get_logger().info(f"Distance from goal: {distance:.2f}.", throttle_duration_sec=2.0)
 
         if not self.ad_mode:
             return
@@ -331,6 +329,7 @@ class RLTorchPolicyNode(Node):
             drive_msg.drive.steering_angle = steering_angle
 
             self.drive_pub.publish(drive_msg)
+            self.get_logger().info(f"Steering angle: {steering_angle:.2f}, Speed: {speed:.2f}")
 
         except Exception as e:
             self.get_logger().error(f"RL inference failed: {e}")

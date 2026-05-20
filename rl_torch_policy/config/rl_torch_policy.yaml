@@ -4,8 +4,6 @@ rl_torch_policy_node:
     goal_topic: "/goal_pose"
     odom_topic: "/odom"
     scan_topic: "/scan"
-    steering_topic: "/steering_angle"
-    speed_topic: "/speed"
     control_rate_hz: 20.0
     obs_clip: 20.0
     lidar_num_beams: 64
