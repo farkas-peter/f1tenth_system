@@ -109,7 +109,7 @@ class CoordTransNode(Node):
             
             # Create Odometry message
             odom_msg = Odometry()
-            odom_msg.header.stamp = self.get_clock().now().to_msg()
+            odom_msg.header.stamp = msg.header.stamp
             odom_msg.header.frame_id = "map"
             odom_msg.child_frame_id = "base_link"
             
@@ -134,7 +134,7 @@ class CoordTransNode(Node):
             
             self.publisher_.publish(odom_msg)
             
-            # Update stored TF state for map -> odom
+            # Update stored TF state for map -> base_link
             self.tf_x = base_x
             self.tf_y = base_y
             self.tf_z = base_z
@@ -144,11 +144,11 @@ class CoordTransNode(Node):
             self.get_logger().error(f"Error converting coordinates: {e}")
 
     def publish_tf(self):
-        """Publish map -> odom TF at 50Hz."""
+        """Publish map -> base_link TF at 50Hz."""
         t = TransformStamped()
         t.header.stamp = self.get_clock().now().to_msg()
         t.header.frame_id = "map"
-        t.child_frame_id = "odom"
+        t.child_frame_id = "base_link"
         t.transform.translation.x = self.tf_x
         t.transform.translation.y = self.tf_y
         t.transform.translation.z = self.tf_z

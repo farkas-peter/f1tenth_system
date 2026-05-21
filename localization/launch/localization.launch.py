@@ -33,12 +33,6 @@ def generate_launch_description():
 
     # map -> odom TF is published dynamically by coord_trans_node
 
-    tf_odom_base = Node(
-        package="tf2_ros",
-        executable="static_transform_publisher",
-        arguments=["0", "0", "0", "0", "0", "0", "odom", "base_link"],
-    )
-
     tf_base_imu = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
@@ -48,7 +42,7 @@ def generate_launch_description():
     tf_base_lidar = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
-        arguments=["-0.33", "0", "0.05", "0", "0", "0", "base_link", "lidar_link"],
+        arguments=["0.33", "0", "0.05", "-3.14159", "0", "0", "base_link", "lidar_link"],
     )
 
     coord_trans_node = Node(
@@ -64,13 +58,20 @@ def generate_launch_description():
         output='screen'
     )
 
+    sllidar_vis_node = Node(
+        package='sllidar_ros2',
+        executable='sllidar_vis_node',
+        name='sllidar_vis_node',
+        output='screen'
+    )
+
     return LaunchDescription([
         ublox_gps_launch,
         ntrip_client_launch,
-        tf_odom_base,
         tf_base_imu,
         tf_base_lidar,
         coord_trans_node,
         localization_vis_node,
+        sllidar_vis_node,
         sllidar_launch
     ])
