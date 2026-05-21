@@ -5,7 +5,9 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
 from nav_msgs.msg import Odometry
+from geometry_msgs.msg import TransformStamped
 from ublox_msgs.msg import NavPVT
+import tf2_ros
 import utm
 
 class CoordTransNode(Node):
@@ -16,6 +18,7 @@ class CoordTransNode(Node):
         self.navpvt_sub = self.create_subscription(NavPVT, '/navpvt', self.navpvt_callback, 10)
             
         self.publisher_ = self.create_publisher(Odometry, '/gps_odom', 10)
+        self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
             
         self.origin_x = None
         self.origin_y = None
@@ -34,6 +37,15 @@ class CoordTransNode(Node):
         self.vel_e = 0.0
         self.vel_n = 0.0
         self.vel_d = 0.0
+        
+        # Stored TF state for map -> odom (updated by fix_callback, published by timer)
+        self.tf_x = 0.0
+        self.tf_y = 0.0
+        self.tf_z = 0.0
+        self.tf_yaw = 0.0
+        
+        # Publish map -> odom TF at 50Hz so it never expires
+        self.tf_timer = self.create_timer(0.02, self.publish_tf)
         
         self.get_logger().info("Coord Trans Node started.")
 
@@ -98,7 +110,7 @@ class CoordTransNode(Node):
             # Create Odometry message
             odom_msg = Odometry()
             odom_msg.header.stamp = self.get_clock().now().to_msg()
-            odom_msg.header.frame_id = "odom"
+            odom_msg.header.frame_id = "map"
             odom_msg.child_frame_id = "base_link"
             
             odom_msg.pose.pose.position.x = base_x
@@ -122,8 +134,29 @@ class CoordTransNode(Node):
             
             self.publisher_.publish(odom_msg)
             
+            # Update stored TF state for map -> odom
+            self.tf_x = base_x
+            self.tf_y = base_y
+            self.tf_z = base_z
+            self.tf_yaw = self.current_yaw
+            
         except Exception as e:
             self.get_logger().error(f"Error converting coordinates: {e}")
+
+    def publish_tf(self):
+        """Publish map -> odom TF at 50Hz."""
+        t = TransformStamped()
+        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.frame_id = "map"
+        t.child_frame_id = "odom"
+        t.transform.translation.x = self.tf_x
+        t.transform.translation.y = self.tf_y
+        t.transform.translation.z = self.tf_z
+        t.transform.rotation.x = 0.0
+        t.transform.rotation.y = 0.0
+        t.transform.rotation.z = math.sin(self.tf_yaw / 2.0)
+        t.transform.rotation.w = math.cos(self.tf_yaw / 2.0)
+        self.tf_broadcaster.sendTransform(t)
 
 def main(args=None):
     rclpy.init(args=args)
