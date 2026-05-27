@@ -43,6 +43,7 @@ class CoordTransNode(Node):
         self.tf_y = 0.0
         self.tf_z = 0.0
         self.tf_yaw = 0.0
+        self.last_stamp = None
         
         # Publish map -> odom TF at 50Hz so it never expires
         self.tf_timer = self.create_timer(0.02, self.publish_tf)
@@ -139,6 +140,7 @@ class CoordTransNode(Node):
             self.tf_y = base_y
             self.tf_z = base_z
             self.tf_yaw = self.current_yaw
+            self.last_stamp = msg.header.stamp
             
         except Exception as e:
             self.get_logger().error(f"Error converting coordinates: {e}")
@@ -146,7 +148,10 @@ class CoordTransNode(Node):
     def publish_tf(self):
         """Publish map -> base_link TF at 50Hz."""
         t = TransformStamped()
-        t.header.stamp = self.get_clock().now().to_msg()
+        if self.last_stamp is None:
+            return
+        t.header.stamp = self.last_stamp
+        #t.header.stamp = self.get_clock().now().to_msg()
         t.header.frame_id = "map"
         t.child_frame_id = "base_link"
         t.transform.translation.x = self.tf_x
