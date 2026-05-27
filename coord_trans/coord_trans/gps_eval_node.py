@@ -13,6 +13,7 @@ class GpsEvalNode(Node):
         
         self.rtk_status_str = "UNKNOWN (Waiting for NavPVT...)"
         self.is_rtk_fixed = False
+        self.num_satellites = 0
         
         self.get_logger().info('GPS Eval Node started, listening on /fix and /navpvt')
 
@@ -32,6 +33,8 @@ class GpsEvalNode(Node):
         else:
             self.rtk_status_str = "NO RTK (3D FIX or NO FIX)"
             self.is_rtk_fixed = False
+        
+        self.num_satellites = msg.num_sv
 
     def fix_callback(self, msg):
         lat = msg.latitude
@@ -58,6 +61,7 @@ class GpsEvalNode(Node):
             self.get_logger().info(f'2D ACCURACY  : Unknown')
             
         self.get_logger().info(f'COORDINATES  : Lat: {lat:.7f}, Lon: {lon:.7f}, Alt: {alt:.2f}')
+        self.get_logger().info(f'SATELLITES   : {self.num_satellites}')
 
 def main(args=None):
     rclpy.init(args=args)
