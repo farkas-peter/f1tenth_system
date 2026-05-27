@@ -2,7 +2,7 @@ rl_torch_policy_node:
   ros__parameters:
     model_path: "/workspace/LOG/models/exported_policy.pt"
     goal_topic: "/goal_pose"
-    odom_topic: "/odom"
+    odom_topic: "/gps_odom"
     scan_topic: "/scan"
     control_rate_hz: 20.0
     obs_clip: 20.0
