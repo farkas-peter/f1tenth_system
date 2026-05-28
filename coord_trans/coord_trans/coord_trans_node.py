@@ -148,10 +148,8 @@ class CoordTransNode(Node):
     def publish_tf(self):
         """Publish map -> base_link TF at 50Hz."""
         t = TransformStamped()
-        if self.last_stamp is None:
-            return
-        t.header.stamp = self.last_stamp
-        #t.header.stamp = self.get_clock().now().to_msg()
+        #t.header.stamp = self.last_stamp
+        t.header.stamp = self.get_clock().now().to_msg()
         t.header.frame_id = "map"
         t.child_frame_id = "base_link"
         t.transform.translation.x = self.tf_x
