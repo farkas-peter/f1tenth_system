@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'imu = realsense.imu:main'
+            'imu = realsense.imu:main',
+            'pcd = realsense.pcd:main'
         ],
     },
 )
