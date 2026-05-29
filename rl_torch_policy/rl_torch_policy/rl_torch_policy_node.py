@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import struct
 from typing import Optional
 
 import numpy as np
@@ -13,7 +14,7 @@ from rclpy.node import Node
 from std_msgs.msg import Float32, Bool
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import LaserScan
+from sensor_msgs.msg import PointCloud2, PointField
 from ackermann_msgs.msg import AckermannDriveStamped
 
 
@@ -41,7 +42,7 @@ class RLTorchPolicyNode(Node):
 
         self.declare_parameter("steering_topic", "/steering_angle")
         self.declare_parameter("speed_topic", "/speed")
-        self.declare_parameter("scan_topic", "/scan")
+        self.declare_parameter("pointcloud_topic", "/points2")
 
         self.declare_parameter("control_rate_hz", 20.0)
 
@@ -65,7 +66,7 @@ class RLTorchPolicyNode(Node):
 
         goal_topic = self.get_parameter("goal_topic").value
         odom_topic = self.get_parameter("odom_topic").value
-        scan_topic = self.get_parameter("scan_topic").value
+        pointcloud_topic = self.get_parameter("pointcloud_topic").value
 
         self.control_rate_hz = float(self.get_parameter("control_rate_hz").value)
 
@@ -97,7 +98,7 @@ class RLTorchPolicyNode(Node):
         # -------------------------
         self.latest_goal: Optional[PoseStamped] = None
         self.latest_odom: Optional[Odometry] = None
-        self.latest_scan: Optional[LaserScan] = None
+        self.latest_pc_ranges: Optional[np.ndarray] = None  # sampled ranges from PointCloud2
         self.ad_mode = False
 
         self.prev_delta_norm = 0.0
@@ -110,7 +111,7 @@ class RLTorchPolicyNode(Node):
 
         self.odom_sub = self.create_subscription(Odometry, odom_topic, self.odom_callback, 10)
 
-        self.scan_sub = self.create_subscription(LaserScan, scan_topic, self.scan_callback, 10)
+        self.pc_sub = self.create_subscription(PointCloud2, pointcloud_topic, self.pointcloud_callback, 10)
 
         self.ad_enable_sub = self.create_subscription(Bool, '/autonomous_enable', self.ad_enable_cb, 10)
 
@@ -130,8 +131,99 @@ class RLTorchPolicyNode(Node):
     def odom_callback(self, msg: Odometry):
         self.latest_odom = msg
 
-    def scan_callback(self, msg: LaserScan):
-        self.latest_scan = msg
+    def pointcloud_callback(self, msg: PointCloud2):
+        """
+        PointCloud2 -> N virtuális sugár a megadott FOV-on belül.
+        A pontfelhő xyz mezőit kinyerjük, 2D-re vetítjük (x-y sík),
+        szögbinekbe soroljuk, és a legkisebb távolságot vesszük binnenként.
+        """
+        try:
+            points_xy = self._parse_pointcloud2_xy(msg)
+        except Exception as e:
+            self.get_logger().error(f"PointCloud2 parse failed: {e}", throttle_duration_sec=2.0)
+            return
+
+        if points_xy.shape[0] == 0:
+            self.latest_pc_ranges = np.ones(self.lidar_num_beams, dtype=np.float32) * self.lidar_max_range
+            return
+
+        # Kiszámoljuk a polár szöget és a távolságot minden pontra
+        x = points_xy[:, 0]
+        y = points_xy[:, 1]
+        angles = np.arctan2(y, x)  # [-pi, pi], 0 = előre (x tengely)
+        distances = np.sqrt(x * x + y * y)
+
+        # Távolság limit
+        distances = np.clip(distances, 0.0, self.lidar_max_range)
+
+        # Binnelés: N egyenletes bin a pontfelhő teljes szögtartományában
+        num_beams = self.lidar_num_beams
+        angle_min = float(np.min(angles))
+        angle_max = float(np.max(angles))
+        bin_edges = np.linspace(angle_min, angle_max, num_beams + 1)
+        bin_indices = np.digitize(angles, bin_edges) - 1  # 0-indexed
+        bin_indices = np.clip(bin_indices, 0, num_beams - 1)
+
+        # Minimum távolság binenként (ha nincs pont, max range)
+        sampled = np.full(num_beams, self.lidar_max_range, dtype=np.float32)
+        for i in range(num_beams):
+            in_bin = distances[bin_indices == i]
+            if len(in_bin) > 0:
+                sampled[i] = float(np.min(in_bin))
+
+        self.latest_pc_ranges = sampled
+
+    @staticmethod
+    def _parse_pointcloud2_xy(msg: PointCloud2) -> np.ndarray:
+        """
+        PointCloud2 üzenetből kinyeri az x, y koordinátákat.
+        Visszatér: (N, 2) float32 numpy array.
+        Csak véges (nem NaN/Inf) pontokat tart meg.
+        """
+        # Megkeressük az x, y, z offset-eket a fieldekből
+        field_map = {}
+        for field in msg.fields:
+            field_map[field.name] = field
+
+        if 'x' not in field_map or 'y' not in field_map:
+            raise ValueError("PointCloud2 missing 'x' or 'y' fields")
+
+        x_field = field_map['x']
+        y_field = field_map['y']
+
+        point_step = msg.point_step
+        data = msg.data
+
+        # Gyors numpy-alapú feldolgozás
+        n_points = msg.width * msg.height
+        if n_points == 0:
+            return np.empty((0, 2), dtype=np.float32)
+
+        # Byte buffer -> numpy
+        raw = np.frombuffer(data, dtype=np.uint8)
+        if len(raw) < n_points * point_step:
+            return np.empty((0, 2), dtype=np.float32)
+
+        # Az x és y float32 értékeket közvetlenül olvassuk
+        raw_points = raw[:n_points * point_step].reshape(n_points, point_step)
+
+        x_off = x_field.offset
+        y_off = y_field.offset
+
+        x_vals = raw_points[:, x_off:x_off+4].copy().view(np.float32).flatten()
+        y_vals = raw_points[:, y_off:y_off+4].copy().view(np.float32).flatten()
+
+        # NaN/Inf szűrés
+        valid = np.isfinite(x_vals) & np.isfinite(y_vals)
+        x_vals = x_vals[valid]
+        y_vals = y_vals[valid]
+
+        # Csak olyan pontok, amelyek a kamera előtt vannak (x > 0)
+        forward_mask = x_vals > 0.05
+        x_vals = x_vals[forward_mask]
+        y_vals = y_vals[forward_mask]
+
+        return np.column_stack([x_vals, y_vals]).astype(np.float32)
 
     def ad_enable_cb(self, msg: Bool):
         self.ad_mode = msg.data
@@ -209,49 +301,14 @@ class RLTorchPolicyNode(Node):
 
         core = np.clip(core, -self.obs_clip, self.obs_clip).astype(np.float32)
 
-        if self.latest_scan is None:
-            # Ha még nincs scan, feltételezzük, hogy max range van
+        if self.latest_pc_ranges is None:
+            # Ha még nincs pontfelhő, feltételezzük, hogy max range van
             lidar_norm = np.ones(
                 shape=(self.lidar_num_beams,),
                 dtype=np.float32,
             )
         else:
-            scan = self.latest_scan
-            ranges = np.array(scan.ranges, dtype=np.float32)
-            
-            # Nan / Inf kezelése
-            ranges = np.nan_to_num(ranges, nan=self.lidar_max_range, posinf=self.lidar_max_range, neginf=0.0)
-            ranges = np.clip(ranges, 0.0, self.lidar_max_range)
-
-            num_ranges = len(ranges)
-            fov = 180.0
-            right_limit = fov / 2.0
-            left_limit = 360.0 - right_limit
-
-            if num_ranges == 720:
-                right_limit = right_limit * 2.0
-                left_limit = 720.0 - right_limit
-            elif num_ranges == 1080:
-                right_limit = right_limit * 3.0
-                left_limit = 1080.0 - right_limit
-
-            right_limit_idx = int(right_limit)
-            left_limit_idx = int(left_limit)
-
-            # C++ logikának megfelelően a valid pontok:
-            # index <= right_limit VAGY index >= left_limit
-            # Folytonos array-t készítünk belőle (jobb oldal és bal oldal összefűzése)
-            right_side = ranges[left_limit_idx:]
-            left_side = ranges[:right_limit_idx + 1]
-            valid_ranges = np.concatenate([right_side, left_side])
-
-            # Downsample a kért lidar_num_beams méretre
-            if len(valid_ranges) > 0:
-                indices = np.linspace(0, len(valid_ranges) - 1, self.lidar_num_beams).astype(int)
-                sampled_ranges = valid_ranges[indices]
-            else:
-                sampled_ranges = np.ones(self.lidar_num_beams, dtype=np.float32) * self.lidar_max_range
-
+            sampled_ranges = self.latest_pc_ranges.copy()
             # Normalizálás [0, 1] közé
             lidar_norm = sampled_ranges / self.lidar_max_range
             lidar_norm = np.clip(lidar_norm, 0.0, 1.0).astype(np.float32)
