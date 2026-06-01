@@ -171,7 +171,7 @@ class PcdNode(Node):
     def pointcloud_pub(self, points):
         header = Header()
         header.stamp = self.get_clock().now().to_msg()
-        header.frame_id = "map"
+        header.frame_id = "camera_link"
 
         cloud = point_cloud2.create_cloud_xyz32(header, points)
 
