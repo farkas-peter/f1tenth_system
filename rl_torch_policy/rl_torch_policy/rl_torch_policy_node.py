@@ -50,6 +50,7 @@ class RLTorchPolicyNode(Node):
         self.declare_parameter("obs_clip", 20.0)
         self.declare_parameter("lidar_num_beams", 64)
         self.declare_parameter("lidar_max_range", 3.5)
+        self.declare_parameter("lidar_fov", 90.0)
 
         # Steering visszaskálázás.
         self.declare_parameter("delta_max", 0.45)
@@ -73,6 +74,7 @@ class RLTorchPolicyNode(Node):
         self.obs_clip = float(self.get_parameter("obs_clip").value)
         self.lidar_num_beams = int(self.get_parameter("lidar_num_beams").value)
         self.lidar_max_range = float(self.get_parameter("lidar_max_range").value)
+        self.lidar_fov = float(self.get_parameter("lidar_fov").value)
 
         self.delta_max = float(self.get_parameter("delta_max").value)
         self.min_speed = float(self.get_parameter("min_speed").value)
@@ -133,9 +135,10 @@ class RLTorchPolicyNode(Node):
 
     def pointcloud_callback(self, msg: PointCloud2):
         """
-        PointCloud2 -> N virtuális sugár a megadott FOV-on belül.
-        A pontfelhő xyz mezőit kinyerjük, 2D-re vetítjük (x-y sík),
-        szögbinekbe soroljuk, és a legkisebb távolságot vesszük binnenként.
+        PointCloud2 -> N virtuális sugár fix FOV-on belül.
+        A pontfelhő xyz mezőit 2D-re vetítjük, fix szögbinekbe soroljuk,
+        és binenként a legkisebb távolságot vesszük.
+        Ha egy binben nincs pont, akkor lidar_max_range marad.
         """
         try:
             points_xy = self._parse_pointcloud2_xy(msg)
@@ -143,32 +146,45 @@ class RLTorchPolicyNode(Node):
             self.get_logger().error(f"PointCloud2 parse failed: {e}", throttle_duration_sec=2.0)
             return
 
+        sampled = np.full(self.lidar_num_beams, self.lidar_max_range, dtype=np.float32)
+
         if points_xy.shape[0] == 0:
-            self.latest_pc_ranges = np.ones(self.lidar_num_beams, dtype=np.float32) * self.lidar_max_range
+            self.latest_pc_ranges = sampled
             return
 
-        # Kiszámoljuk a polár szöget és a távolságot minden pontra
         x = points_xy[:, 0]
         y = points_xy[:, 1]
-        angles = np.arctan2(y, x)  # [-pi, pi], 0 = előre (x tengely)
+
+        angles = np.arctan2(y, x)  # 0 = előre, + irány a body y tengely felé
         distances = np.sqrt(x * x + y * y)
 
-        # Távolság limit
-        distances = np.clip(distances, 0.0, self.lidar_max_range)
+        angle_min = -0.5 * self.lidar_fov
+        angle_max =  0.5 * self.lidar_fov
 
-        # Binnelés: N egyenletes bin a pontfelhő teljes szögtartományában
-        num_beams = self.lidar_num_beams
-        angle_min = float(np.min(angles))
-        angle_max = float(np.max(angles))
-        bin_edges = np.linspace(angle_min, angle_max, num_beams + 1)
-        bin_indices = np.digitize(angles, bin_edges) - 1  # 0-indexed
-        bin_indices = np.clip(bin_indices, 0, num_beams - 1)
+        valid = (
+            np.isfinite(x) &
+            np.isfinite(y) &
+            np.isfinite(distances) &
+            (distances > 0.02) &
+            (distances <= self.lidar_max_range) &
+            (angles >= angle_min) &
+            (angles <= angle_max)
+        )
 
-        # Minimum távolság binenként (ha nincs pont, max range)
-        sampled = np.full(num_beams, self.lidar_max_range, dtype=np.float32)
-        for i in range(num_beams):
+        angles = angles[valid]
+        distances = distances[valid]
+
+        if angles.shape[0] == 0:
+            self.latest_pc_ranges = sampled
+            return
+
+        bin_edges = np.linspace(angle_min, angle_max, self.lidar_num_beams + 1)
+        bin_indices = np.digitize(angles, bin_edges) - 1
+        bin_indices = np.clip(bin_indices, 0, self.lidar_num_beams - 1)
+
+        for i in range(self.lidar_num_beams):
             in_bin = distances[bin_indices == i]
-            if len(in_bin) > 0:
+            if in_bin.size > 0:
                 sampled[i] = float(np.min(in_bin))
 
         self.latest_pc_ranges = sampled
