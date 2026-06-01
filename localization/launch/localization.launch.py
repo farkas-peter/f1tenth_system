@@ -26,7 +26,13 @@ def generate_launch_description():
     tf_base_imu = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
-        arguments=["-0.33", "0", "0.08", "0.5", "-0.5", "0.5", "0.5", "base_link", "imu_link"],
+        arguments=["0.33", "0", "0.08", "0.5", "-0.5", "0.5", "0.5", "base_link", "imu_link"],
+    )
+
+    tf_baselink_camera = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        arguments=["0.33", "0", "0.08", "0", "0", "0", "base_link", "camera_link"],
     )
 
     tf_base_lidar = Node(
@@ -59,6 +65,7 @@ def generate_launch_description():
         ublox_gps_launch,
         ntrip_client_launch,
         tf_base_imu,
+        tf_baselink_camera,
         tf_base_lidar,
         coord_trans_node,
         localization_vis_node,
