@@ -74,7 +74,7 @@ class RLTorchPolicyNode(Node):
         self.obs_clip = float(self.get_parameter("obs_clip").value)
         self.lidar_num_beams = int(self.get_parameter("lidar_num_beams").value)
         self.lidar_max_range = float(self.get_parameter("lidar_max_range").value)
-        self.lidar_fov = float(self.get_parameter("lidar_fov").value)
+        self.lidar_fov = math.radians(float(self.get_parameter("lidar_fov").value))
 
         self.delta_max = float(self.get_parameter("delta_max").value)
         self.min_speed = float(self.get_parameter("min_speed").value)
@@ -165,29 +165,35 @@ class RLTorchPolicyNode(Node):
             np.isfinite(x) &
             np.isfinite(y) &
             np.isfinite(distances) &
-            (distances > 0.02) &
+            (distances > 0.2) &
             (distances <= self.lidar_max_range) &
             (angles >= angle_min) &
             (angles <= angle_max)
         )
-
+    
         angles = angles[valid]
         distances = distances[valid]
 
-        if angles.shape[0] == 0:
+        if angles.size == 0:
             self.latest_pc_ranges = sampled
             return
 
-        bin_edges = np.linspace(angle_min, angle_max, self.lidar_num_beams + 1)
-        bin_indices = np.digitize(angles, bin_edges) - 1
-        bin_indices = np.clip(bin_indices, 0, self.lidar_num_beams - 1)
+        normalized = (angles - angle_min) / (angle_max - angle_min)
 
-        for i in range(self.lidar_num_beams):
-            in_bin = distances[bin_indices == i]
-            if in_bin.size > 0:
-                sampled[i] = float(np.min(in_bin))
+        bin_indices = np.floor(normalized * self.lidar_num_beams).astype(np.int32)
+
+        # Az angle_max pontosan a 32-es indexet adná,
+        # ezért vissza kell clipelni 31-re.
+        bin_indices = np.clip(bin_indices, 0, self.lidar_num_beams - 1,)
+
+        # Minden binben a legkisebb távolság.
+        np.minimum.at(sampled, bin_indices, distances)
 
         self.latest_pc_ranges = sampled
+        
+        #string = " | ".join(f"{value:.2f}" for value in self.latest_pc_ranges)
+        #self.get_logger().info(string, throttle_duration_sec=0.1)
+        
 
     @staticmethod
     def _parse_pointcloud2_xy(msg: PointCloud2) -> np.ndarray:
@@ -373,6 +379,7 @@ class RLTorchPolicyNode(Node):
         return steering_angle, speed
 
     def control_loop(self):
+        """
         if self.latest_goal is None:
             self.get_logger().warn("No goal_pose received yet.", throttle_duration_sec=2.0)
             return
@@ -406,6 +413,7 @@ class RLTorchPolicyNode(Node):
 
         except Exception as e:
             self.get_logger().error(f"RL inference failed: {e}")
+        """
 
 
 def main(args=None):
