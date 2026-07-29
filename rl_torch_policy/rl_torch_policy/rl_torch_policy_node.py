@@ -379,7 +379,6 @@ class RLTorchPolicyNode(Node):
         return steering_angle, speed
 
     def control_loop(self):
-        """
         if self.latest_goal is None:
             self.get_logger().warn("No goal_pose received yet.", throttle_duration_sec=2.0)
             return
@@ -413,7 +412,6 @@ class RLTorchPolicyNode(Node):
 
         except Exception as e:
             self.get_logger().error(f"RL inference failed: {e}")
-        """
 
 
 def main(args=None):
