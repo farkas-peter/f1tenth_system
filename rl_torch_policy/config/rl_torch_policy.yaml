@@ -13,3 +13,5 @@ rl_torch_policy_node:
     min_speed: 1.0
     max_speed: 3.0
     device: "cpu"
+
+    test_mode: True

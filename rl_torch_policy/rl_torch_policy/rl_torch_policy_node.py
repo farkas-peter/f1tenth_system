@@ -63,6 +63,9 @@ class RLTorchPolicyNode(Node):
         # Ha nincs CUDA vagy Jetsonon CPU-n akarod futtatni, legyen "cpu".
         self.declare_parameter("device", "cuda")
 
+        # Inference test
+        self.declare_parameter("test_mode", False)
+
         self.model_path = self.get_parameter("model_path").value
 
         goal_topic = self.get_parameter("goal_topic").value
@@ -85,6 +88,7 @@ class RLTorchPolicyNode(Node):
             self.device = torch.device("cuda")
         else:
             self.device = torch.device("cpu")
+        self.test_mode = bool(self.get_parameter("test_mode").value)
 
         # -------------------------
         # Model load
@@ -274,37 +278,46 @@ class RLTorchPolicyNode(Node):
         ]
         """
 
-        assert self.latest_goal is not None
-        assert self.latest_odom is not None
+        if self.test_mode:
+            # Hamis cél közvetlenül body frame-ben
+            dx_body = float(5.0)
+            dy_body = float(0.0)
+            dist = math.hypot(dx_body, dy_body)
+        else:
+            if self.latest_goal is None:
+                raise RuntimeError("No goal_pose received.")
 
-        # Vehicle pose from odom
-        odom_pose = self.latest_odom.pose.pose
+            if self.latest_odom is None:
+                raise RuntimeError("No odometry received.")
 
-        x = float(odom_pose.position.x)
-        y = float(odom_pose.position.y)
-        yaw = quaternion_to_yaw(odom_pose.orientation)
+            # Vehicle pose from odom
+            odom_pose = self.latest_odom.pose.pose
 
-        # Goal pose
-        goal_pose = self.latest_goal.pose
+            x = float(odom_pose.position.x)
+            y = float(odom_pose.position.y)
+            yaw = quaternion_to_yaw(odom_pose.orientation)
 
-        goal_x = float(goal_pose.position.x)
-        goal_y = float(goal_pose.position.y)
+            # Goal pose
+            goal_pose = self.latest_goal.pose
 
-        # World frame-ben célvektor
-        dx_world = goal_x - x
-        dy_world = goal_y - y
+            goal_x = float(goal_pose.position.x)
+            goal_y = float(goal_pose.position.y)
 
-        # World -> body transzformáció
-        # Ez megegyezik a training environment logikájával:
-        # body_x =  cos(yaw) * world_x + sin(yaw) * world_y
-        # body_y = -sin(yaw) * world_x + cos(yaw) * world_y
-        c = math.cos(yaw)
-        s = math.sin(yaw)
+            # World frame-ben célvektor
+            dx_world = goal_x - x
+            dy_world = goal_y - y
 
-        dx_body = c * dx_world + s * dy_world
-        dy_body = -s * dx_world + c * dy_world
+            # World -> body transzformáció
+            # Ez megegyezik a training environment logikájával:
+            # body_x =  cos(yaw) * world_x + sin(yaw) * world_y
+            # body_y = -sin(yaw) * world_x + cos(yaw) * world_y
+            c = math.cos(yaw)
+            s = math.sin(yaw)
 
-        dist = math.sqrt(dx_world * dx_world + dy_world * dy_world)
+            dx_body = c * dx_world + s * dy_world
+            dy_body = -s * dx_world + c * dy_world
+
+            dist = math.sqrt(dx_world * dx_world + dy_world * dy_world)
 
         heading_err = math.atan2(dy_body, dx_body)
 
@@ -379,6 +392,7 @@ class RLTorchPolicyNode(Node):
         return steering_angle, speed
 
     def control_loop(self):
+        """
         if self.latest_goal is None:
             self.get_logger().warn("No goal_pose received yet.", throttle_duration_sec=2.0)
             return
@@ -395,7 +409,7 @@ class RLTorchPolicyNode(Node):
             self.stop_vehicle()
             return
         self.get_logger().info(f"Distance from goal: {distance:.2f}.", throttle_duration_sec=2.0)
-
+        """
         if not self.ad_mode:
             return
 
