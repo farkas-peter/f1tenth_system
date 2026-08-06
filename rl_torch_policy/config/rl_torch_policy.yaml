@@ -1,6 +1,6 @@
 rl_torch_policy_node:
   ros__parameters:
-    model_path: "/workspace/LOG/models/camera_based_policy.pt"
+    model_path: "/workspace/LOG/models/noisy_heading_policy.pt"
     goal_topic: "/goal_pose"
     odom_topic: "/gps_odom"
     pointcloud_topic: "/pointcloud"
@@ -14,4 +14,4 @@ rl_torch_policy_node:
     max_speed: 3.0
     device: "cpu"
 
-    test_mode: True
+    test_mode: False

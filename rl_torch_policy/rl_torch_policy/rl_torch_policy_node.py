@@ -392,24 +392,24 @@ class RLTorchPolicyNode(Node):
         return steering_angle, speed
 
     def control_loop(self):
-        """
-        if self.latest_goal is None:
-            self.get_logger().warn("No goal_pose received yet.", throttle_duration_sec=2.0)
-            return
+        if not self.test_mode:
+            if self.latest_goal is None:
+                self.get_logger().warn("No goal_pose received yet.", throttle_duration_sec=2.0)
+                return
 
-        if self.latest_odom is None:
-            self.get_logger().warn("No odom received yet.", throttle_duration_sec=2.0)
-            return
+            if self.latest_odom is None:
+                self.get_logger().warn("No odom received yet.", throttle_duration_sec=2.0)
+                return
+            
+            dx= self.latest_odom.pose.pose.position.x - self.latest_goal.pose.position.x
+            dy = self.latest_odom.pose.pose.position.y- self.latest_goal.pose.position.y
+            distance = math.hypot(dx, dy)
+
+            if distance <= 0.5:
+                self.stop_vehicle()
+                return
+            self.get_logger().info(f"Distance from goal: {distance:.2f}.", throttle_duration_sec=2.0)
         
-        dx= self.latest_odom.pose.pose.position.x - self.latest_goal.pose.position.x
-        dy = self.latest_odom.pose.pose.position.y- self.latest_goal.pose.position.y
-        distance = math.hypot(dx, dy)
-
-        if distance <= 0.5:
-            self.stop_vehicle()
-            return
-        self.get_logger().info(f"Distance from goal: {distance:.2f}.", throttle_duration_sec=2.0)
-        """
         if not self.ad_mode:
             return
 
