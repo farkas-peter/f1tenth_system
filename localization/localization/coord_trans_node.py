@@ -27,6 +27,8 @@ class CoordTransNode(Node):
         self.prev_x = None
         self.prev_y = None
         self.current_yaw = 0.0  # Initial yaw
+        self.filtered_yaw = None
+        self.alpha = 0.8
         self.has_rtk_fix = False
         
         # GPS antenna offset from base_link (must match static TF in launch file)
@@ -89,8 +91,9 @@ class CoordTransNode(Node):
                 dy = northing - self.prev_y
                 dist = math.sqrt(dx*dx + dy*dy)
                 
-                if dist >= 0.05:
-                    self.current_yaw = math.atan2(dy, dx)
+                if dist >= 0.15:
+                    yaw_raw = math.atan2(dy, dx)
+                    self.current_yaw = self.filter_yaw(yaw_raw)
                     self.prev_x = easting
                     self.prev_y = northing
             else:
@@ -144,6 +147,19 @@ class CoordTransNode(Node):
             
         except Exception as e:
             self.get_logger().error(f"Error converting coordinates: {e}")
+
+    def filter_yaw(self, yaw_raw):
+        if self.filtered_yaw is None:
+            self.filtered_yaw = yaw_raw
+            return yaw_raw
+
+        error = math.atan2(math.sin(yaw_raw - self.filtered_yaw),math.cos(yaw_raw - self.filtered_yaw))
+
+        self.filtered_yaw += self.alpha * error
+
+        self.filtered_yaw = math.atan2(math.sin(self.filtered_yaw),math.cos(self.filtered_yaw))
+
+        return self.filtered_yaw
 
     def publish_tf(self):
         """Publish map -> base_link TF at 50Hz."""
