@@ -10,7 +10,13 @@
   <depend>rclpy</depend>
   <depend>ublox_gps</depend>
   <depend>ntrip_client</depend>
-  <depend>coord_trans</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>ublox_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>novatel_oem7_msgs</depend>
   <exec_depend>robot_localization</exec_depend>
 
   <test_depend>ament_copyright</test_depend>

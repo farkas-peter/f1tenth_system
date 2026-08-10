@@ -24,6 +24,10 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'coord_trans_node = localization.coord_trans_node:main',
+            'localization_vis_node = localization.localization_vis_node:main',
+            'gps_eval_node = localization.gps_eval_node:main',
+            'osm_goal_publisher = localization.osm_goal_publisher:main',
         ],
     },
 )

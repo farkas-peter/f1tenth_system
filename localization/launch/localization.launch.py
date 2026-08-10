@@ -42,13 +42,13 @@ def generate_launch_description():
     )
 
     coord_trans_node = Node(
-        package='coord_trans',
+        package='localization',
         executable='coord_trans_node',
         name='coord_trans_node'
     )
 
     localization_vis_node = Node(
-        package='coord_trans',
+        package='localization',
         executable='localization_vis_node',
         name='localization_vis_node',
         output='screen'

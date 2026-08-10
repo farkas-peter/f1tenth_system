@@ -164,7 +164,7 @@ def generate_launch_description():
         name='FSS_node'
     )
     coord_trans_node = Node(
-        package='coord_trans',
+        package='localization',
         executable='coord_trans_node',
         name='coord_trans_node'
     )
