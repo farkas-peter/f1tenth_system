@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>ROS2 OpenStreetMap Goal Publisher</title>
+
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+    </script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: #0f1923;
+            color: #e0e6ed;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            padding: 12px 20px;
+            background: #152536;
+            border-bottom: 1px solid #29445d;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #4fc3f7;
+        }
+
+        .status {
+            font-size: 13px;
+            color: #a9bfd1;
+        }
+
+        .panel {
+            padding: 10px 20px;
+            background: #1a2940;
+            border-bottom: 1px solid #29445d;
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            flex-wrap: wrap;
+            font-size: 13px;
+        }
+
+        .item {
+            display: flex;
+            gap: 7px;
+            align-items: center;
+        }
+
+        .label {
+            color: #708aa0;
+            font-weight: 600;
+        }
+
+        .value {
+            color: #d4ebff;
+            font-family: Consolas, monospace;
+        }
+
+        #goalStatus {
+            margin-left: auto;
+            font-weight: 600;
+            color: #9e9e9e;
+        }
+
+        #goalStatus.ok {
+            color: #66bb6a;
+        }
+
+        #goalStatus.error {
+            color: #ef5350;
+        }
+
+        #map {
+            flex: 1;
+            min-height: 300px;
+            z-index: 1;
+        }
+
+        .hint {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 22px;
+            z-index: 1000;
+            background: rgba(15, 25, 35, 0.92);
+            border: 1px solid #36536b;
+            color: #d8e6f2;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            pointer-events: none;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.28);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="title">ROS2 OpenStreetMap Goal Publisher</div>
+        <div class="status" id="gpsStatus">GPS: waiting...</div>
+    </div>
+
+    <div class="panel">
+        <div class="item">
+            <span class="label">VEH LAT</span>
+            <span class="value" id="vehicleLat">--</span>
+        </div>
+
+        <div class="item">
+            <span class="label">VEH LON</span>
+            <span class="value" id="vehicleLon">--</span>
+        </div>
+
+        <div class="item">
+            <span class="label">GOAL LAT</span>
+            <span class="value" id="goalLat">--</span>
+        </div>
+
+        <div class="item">
+            <span class="label">GOAL LON</span>
+            <span class="value" id="goalLon">--</span>
+        </div>
+
+        <div id="goalStatus">Click on the map to publish a goal</div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="hint">
+        Kattints a térképre: a kiválasztott pont azonnal publikálásra kerül.
+    </div>
+
+    <script>
+        const INITIAL_LAT = __INITIAL_LAT__;
+        const INITIAL_LON = __INITIAL_LON__;
+        const INITIAL_ZOOM = __INITIAL_ZOOM__;
+
+        const map = L.map("map").setView(
+            [INITIAL_LAT, INITIAL_LON],
+            INITIAL_ZOOM
+        );
+
+        L.tileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            {
+                maxZoom: 19,
+                attribution: "&copy; OpenStreetMap contributors"
+            }
+        ).addTo(map);
+
+        let vehicleMarker = null;
+        let goalMarker = null;
+        let firstVehiclePosition = true;
+
+        function setGoalStatus(text, cls = "") {
+            const el = document.getElementById("goalStatus");
+            el.textContent = text;
+            el.className = cls;
+        }
+
+        async function publishGoal(lat, lon) {
+            try {
+                setGoalStatus("Publishing goal...");
+
+                const resp = await fetch("/api/goal", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        lat: lat,
+                        lon: lon
+                    })
+                });
+
+                if (!resp.ok) {
+                    throw new Error("HTTP " + resp.status);
+                }
+
+                const data = await resp.json();
+
+                document.getElementById("goalLat").textContent =
+                    lat.toFixed(8);
+
+                document.getElementById("goalLon").textContent =
+                    lon.toFixed(8);
+
+                setGoalStatus("Goal published", "ok");
+
+                console.log("Goal accepted by ROS bridge:", data);
+
+            } catch (e) {
+                console.error(e);
+                setGoalStatus("Goal publish failed", "error");
+            }
+        }
+
+        map.on("click", async (event) => {
+            const lat = event.latlng.lat;
+            const lon = event.latlng.lng;
+
+            if (goalMarker === null) {
+                goalMarker = L.circleMarker(
+                    [lat, lon],
+                    {
+                        radius: 9,
+                        color: "#ffffff",
+                        weight: 3,
+                        fillColor: "#e53935",
+                        fillOpacity: 1.0
+                    }
+                ).addTo(map);
+            } else {
+                goalMarker.setLatLng([lat, lon]);
+            }
+
+            await publishGoal(lat, lon);
+        });
+
+        async function updateState() {
+            try {
+                const resp = await fetch("/api/state");
+                const data = await resp.json();
+
+                if (
+                    data.vehicle_lat !== null &&
+                    data.vehicle_lon !== null
+                ) {
+                    const pos = [
+                        data.vehicle_lat,
+                        data.vehicle_lon
+                    ];
+
+                    document.getElementById("vehicleLat").textContent =
+                        data.vehicle_lat.toFixed(8);
+
+                    document.getElementById("vehicleLon").textContent =
+                        data.vehicle_lon.toFixed(8);
+
+                    document.getElementById("gpsStatus").textContent =
+                        "GPS: active";
+
+                    if (vehicleMarker === null) {
+                        vehicleMarker = L.marker(pos).addTo(map);
+                        vehicleMarker.bindTooltip("Vehicle");
+                    } else {
+                        vehicleMarker.setLatLng(pos);
+                    }
+
+                    if (firstVehiclePosition) {
+                        map.setView(pos, INITIAL_ZOOM);
+                        firstVehiclePosition = false;
+                    }
+                }
+
+                if (
+                    data.goal_lat !== null &&
+                    data.goal_lon !== null
+                ) {
+                    document.getElementById("goalLat").textContent =
+                        data.goal_lat.toFixed(8);
+
+                    document.getElementById("goalLon").textContent =
+                        data.goal_lon.toFixed(8);
+                }
+
+            } catch (e) {
+                console.error("State update failed:", e);
+                document.getElementById("gpsStatus").textContent =
+                    "ROS bridge unavailable";
+            }
+        }
+
+        updateState();
+        setInterval(updateState, 500);
+    </script>
+</body>
+</html>

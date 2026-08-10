@@ -16,7 +16,6 @@
   <depend>visualization_msgs</depend>
   <depend>ublox_msgs</depend>
   <depend>tf2_ros</depend>
-  <depend>novatel_oem7_msgs</depend>
   <exec_depend>robot_localization</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
