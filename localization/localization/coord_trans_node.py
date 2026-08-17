@@ -55,7 +55,7 @@ class CoordTransNode(Node):
     def navpvt_callback(self, msg: NavPVT):
         # FLAGS_CARRIER_PHASE_MASK = 192 (0b11000000)
         # CARRIER_PHASE_FIXED = 128      (0b10000000)
-        if (msg.flags & 192) == 128:
+        if (msg.flags & 192) == 64 or (msg.flags & 192) == 128:
             self.has_rtk_fix = True
         else:
             self.has_rtk_fix = False
