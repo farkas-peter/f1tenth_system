@@ -1,6 +1,6 @@
 rl_torch_policy_node:
   ros__parameters:
-    model_path: "/workspace/LOG/models/noisy_heading_policy.pt"
+    model_path: "/workspace/LOG/models/mix_env_policy.pt"
     goal_topic: "/goal_pose"
     odom_topic: "/gps_odom"
     pointcloud_topic: "/pointcloud"
