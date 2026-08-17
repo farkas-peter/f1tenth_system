@@ -319,13 +319,13 @@ class GoogleMapsGoalPublisher(Node):
         # Logging
         # ------------------------------------------------------------------
 
-        url = f"http://localhost:{self.http_port}"
+        url = f"http://192.168.8.18:{self.http_port}"
 
         self.get_logger().info(f"OpenStreetMap Goal Publisher started: {url}")
 
-        self.get_logger().info(f"GPS input: {self.gps_topic}")
+        #self.get_logger().info(f"GPS input: {self.gps_topic}")
 
-        self.get_logger().info(f"Goal PoseStamped output: {self.goal_pose_topic}")
+        #self.get_logger().info(f"Goal PoseStamped output: {self.goal_pose_topic}")
 
         if self.use_first_gps_as_origin:
             self.get_logger().info("Local coordinate origin will be set from the first GPS fix.")

@@ -54,6 +54,13 @@ def generate_launch_description():
         output='screen'
     )
 
+    osm_goal_publisher_node = Node(
+        package='localization',
+        executable='osm_goal_publisher',
+        name='osm_goal_publisher',
+        output='screen'
+    )
+
     pcd_node = Node(
         package='realsense',
         executable='pcd',
@@ -69,5 +76,6 @@ def generate_launch_description():
         tf_base_lidar,
         coord_trans_node,
         localization_vis_node,
+        osm_goal_publisher_node,
         pcd_node
     ])
