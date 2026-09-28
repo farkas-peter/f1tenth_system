@@ -13,8 +13,8 @@ class ImageRecorder(Node):
         super().__init__('video_recorder')
 
         # Paraméterek
-        self.declare_parameter('topic', '/ultralytics/detection/image')
-        self.declare_parameter('path', '')          # ha üres, ~/.ros alá ment
+        self.declare_parameter('topic', '/camera/image')
+        self.declare_parameter('path', '/workspace/LOG/recordings')
         self.declare_parameter('fps', 30.0)
         self.declare_parameter('codec', 'MJPG')     # konténer-kompatibilis fallback
         self.declare_parameter('ext', 'avi')        # MP4-hez próbáld: codec=mp4v, ext=mp4
