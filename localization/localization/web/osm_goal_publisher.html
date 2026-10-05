@@ -177,6 +177,7 @@
 
         let vehicleMarker = null;
         let goalMarker = null;
+        let trajectoryLine = null;
         let firstVehiclePosition = true;
 
         function setGoalStatus(text, cls = "") {
@@ -241,6 +242,12 @@
                 goalMarker.setLatLng([lat, lon]);
             }
 
+            // Előző trajektória törlése
+            if (trajectoryLine !== null) {
+                map.removeLayer(trajectoryLine);
+                trajectoryLine = null;
+            }
+
             await publishGoal(lat, lon);
         });
 
@@ -289,6 +296,32 @@
 
                     document.getElementById("goalLon").textContent =
                         data.goal_lon.toFixed(8);
+                }
+
+                // Trajektória kirajzolása
+                if (data.trajectory && data.trajectory.length > 1) {
+                    if (trajectoryLine !== null) {
+                        trajectoryLine.setLatLngs(data.trajectory);
+                    } else {
+                        trajectoryLine = L.polyline(
+                            data.trajectory,
+                            {
+                                color: "#FF1493",
+                                weight: 4,
+                                opacity: 0.85,
+                                smoothFactor: 1,
+                                lineCap: "round",
+                                lineJoin: "round"
+                            }
+                        ).addTo(map);
+                    }
+                } else if (
+                    data.trajectory &&
+                    data.trajectory.length <= 1 &&
+                    trajectoryLine !== null
+                ) {
+                    map.removeLayer(trajectoryLine);
+                    trajectoryLine = null;
                 }
 
             } catch (e) {

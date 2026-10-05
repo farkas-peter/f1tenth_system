@@ -65,6 +65,10 @@ _web_state = {
     # HTTP handler ide ír új kattintáskor.
     # A ROS timer ezt egyszer kiolvassa, majd None-ra állítja.
     "pending_goal": None,
+
+    # Trajektória: a jármű GPS útvonala [[lat, lon], ...]
+    # Új cél kijelölésekor törlődik.
+    "trajectory": [],
 }
 
 _web_lock = threading.Lock()
@@ -108,6 +112,7 @@ class GoalHttpHandler(BaseHTTPRequestHandler):
                     "vehicle_lon": _web_state["vehicle_lon"],
                     "goal_lat": _web_state["goal_lat"],
                     "goal_lon": _web_state["goal_lon"],
+                    "trajectory": list(_web_state["trajectory"]),
                 }
 
             self._send_json(200, data)
@@ -148,6 +153,7 @@ class GoalHttpHandler(BaseHTTPRequestHandler):
                 _web_state["goal_lat"] = lat
                 _web_state["goal_lon"] = lon
                 _web_state["pending_goal"] = (lat, lon)
+                _web_state["trajectory"] = []  # Új cél: régi trajektória törlése
 
             self._send_json(
                 200,
@@ -353,6 +359,7 @@ class GoogleMapsGoalPublisher(Node):
         with _web_lock:
             _web_state["vehicle_lat"] = lat
             _web_state["vehicle_lon"] = lon
+            _web_state["trajectory"].append([lat, lon])
 
         # Első GPS fix lesz az origin.
         if (self.use_first_gps_as_origin and self.origin_lat is None):
