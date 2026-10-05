@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 import pyrealsense2 as rs
-from sensor_msgs.msg import PointCloud2
+from sensor_msgs.msg import PointCloud2, Image
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import Header
 import numpy as np
@@ -19,6 +19,7 @@ class PcdNode(Node):
         self.zmax = 0.2
         self.zmin = 0.05
         self.vehicle_width = 0.3
+        self.enable_color_image = True
 
         #RANSAC parameters
         self.RANSAC_on = True
@@ -27,9 +28,12 @@ class PcdNode(Node):
         self.num_iterations = 1000
         self.tilt_tolerance = 10.0
         self.max_planes = 3
+
+        self.bridge = CvBridge()
         
         # ROS 2 Publishers
         self.cloud_publish = self.create_publisher(PointCloud2, "/pointcloud", 1)
+        self.image_publish = self.create_publisher(Image, "/camera/image", 1)
 
         #Stereo Camera
         # Configure depth and color streams
@@ -56,6 +60,7 @@ class PcdNode(Node):
         self.depth_scale =  depth_sensor.get_depth_scale()
 
         config.enable_stream(rs.stream.depth, self.width, self.height, rs.format.z16, 30)
+        config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, 30)
 
         # Start streaming
         self.pipeline.start(config)
@@ -73,8 +78,12 @@ class PcdNode(Node):
 
         depth_frame = frames.get_depth_frame()
         depth_frame = self.decimate.process(depth_frame)
+        color_frame = frames.get_color_frame()
         if not depth_frame:
             return
+
+        if self.enable_color_image:
+            self.image_pub(np.asanyarray(color_frame.get_data()))
         
         #Image points to 3D points
         points_xyz = self.depth2PointCloud(depth_frame)
@@ -167,6 +176,11 @@ class PcdNode(Node):
             return points
         mask = (points[:,2] >= self.zmin) & (points[:,2] <= self.zmax)
         return points[mask]
+
+    def image_pub(self, color_image):
+        scaled_image = cv2.resize(color_image, (480, 360), interpolation=cv2.INTER_AREA)
+        #gray_scaled_image = cv2.cvtColor(scaled_image, cv2.COLOR_BGR2GRAY)
+        self.image_publish.publish(self.bridge.cv2_to_imgmsg(scaled_image, encoding="bgr8"))
     
     def pointcloud_pub(self, points):
         header = Header()
