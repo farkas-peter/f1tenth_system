@@ -23,7 +23,8 @@ setup(
             'imu = realsense.imu:main',
             'pcd = realsense.pcd:main',
             'publisher = realsense.publisher:main',
-            'hdf5_recorder = realsense.hdf5_recorder:main'
+            'hdf5_recorder = realsense.hdf5_recorder:main',
+            'snapshot = realsense.snapshot:main'
         ],
     },
 )
