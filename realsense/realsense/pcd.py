@@ -16,10 +16,11 @@ class PcdNode(Node):
         self.width = 640
         self.height = 480
         self.clip_dist = 3.0
-        self.zmax = 0.2
+        self.zmax = 0.4
         self.zmin = 0.05
         self.vehicle_width = 0.3
         self.enable_color_image = True
+        self.enable_raw_pcl = True
 
         #RANSAC parameters
         self.RANSAC_on = True
@@ -34,6 +35,7 @@ class PcdNode(Node):
         # ROS 2 Publishers
         self.cloud_publish = self.create_publisher(PointCloud2, "/pointcloud", 1)
         self.image_publish = self.create_publisher(Image, "/camera/image", 1)
+        self.raw_cloud_publish = self.create_publisher(PointCloud2, "/raw_pointcloud", 1)
 
         #Stereo Camera
         # Configure depth and color streams
@@ -90,6 +92,10 @@ class PcdNode(Node):
 
         #Additional fltering for performance
         points_xyz = self.random_subsample(points_xyz, 20000)
+
+        if self.enable_raw_pcl:
+            raw_points = self.random_subsample(points_xyz, 5000)
+            self.raw_pointcloud_pub(raw_points)
 
         if self.RANSAC_on:
             #RANSAC segmentation
@@ -190,6 +196,15 @@ class PcdNode(Node):
         cloud = point_cloud2.create_cloud_xyz32(header, points)
 
         self.cloud_publish.publish(cloud)
+
+    def raw_pointcloud_pub(self, points):
+        header = Header()
+        header.stamp = self.get_clock().now().to_msg()
+        header.frame_id = "camera_link"
+
+        cloud = point_cloud2.create_cloud_xyz32(header, points)
+
+        self.raw_cloud_publish.publish(cloud)
         
 
 def main(args=None):
