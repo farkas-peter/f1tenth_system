@@ -26,6 +26,8 @@ from launch.substitutions import Command
 from launch.substitutions import LaunchConfiguration
 from launch.actions import DeclareLaunchArgument
 from launch.actions import IncludeLaunchDescription
+from launch.actions import ExecuteProcess
+from launch.substitutions import PathJoinSubstitution
 from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
 import os
@@ -74,7 +76,14 @@ def generate_launch_description():
         default_value='false',
         description='Publish the YOLO detection image on /search/detection/image')
 
-    ld = LaunchDescription([joy_la, vesc_la, sensors_la, mux_la, publish_img_la])
+    # the server venv lives in the source tree, not in install/
+    gemini_pkg_dir_la = DeclareLaunchArgument(
+        'gemini_pkg_dir',
+        default_value='/workspace/src/f1tenth_system/gemini_pkg',
+        description='Source folder of gemini_pkg (holds .venv and gemini_server.py)')
+
+    ld = LaunchDescription([joy_la, vesc_la, sensors_la, mux_la, publish_img_la,
+                            gemini_pkg_dir_la])
 
     joy_node = Node(
         package='joy',
@@ -164,7 +173,15 @@ def generate_launch_description():
         output='screen',
         parameters=[{'publish_img': LaunchConfiguration('publish_img')}]
     )
-    
+    # Gemini FastAPI server on 127.0.0.1:8000 (Python 3.12 venv, not ROS)
+    gemini_server = ExecuteProcess(
+        cmd=[PathJoinSubstitution([LaunchConfiguration('gemini_pkg_dir'), '.venv', 'bin', 'python']),
+             'gemini_server.py'],
+        cwd=PathJoinSubstitution([LaunchConfiguration('gemini_pkg_dir'), 'gemini_pkg']),
+        name='gemini_server',
+        output='screen'
+    )
+
     # finalize
     ld.add_action(joy_node)
     ld.add_action(joy_teleop_node)
@@ -172,6 +189,7 @@ def generate_launch_description():
     ld.add_action(vesc_to_odom_node)
     ld.add_action(vesc_driver_node)
     ld.add_action(ackermann_mux_node)
+    ld.add_action(gemini_server)
     ld.add_action(speech_to_search_node)
 
     return ld

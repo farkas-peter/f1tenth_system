@@ -104,10 +104,12 @@ steering one way, forward with steering the other way). When the object is seen
 around the horizontal middle of the image (within `center_tolerance`, the yellow lines
 on the stream) in `confirm_frames` consecutive frames, the car stops: it faces the object.
 
-1. Gemini server (same as above).
-2. ```bash
+1. ```bash
    ros2 launch f1tenth_stack gemini_search_launch.py
    ```
+   This also starts the Gemini server from
+   `/workspace/src/f1tenth_system/gemini_pkg/.venv` (override with
+   `gemini_pkg_dir:=<path>`), so don't start it separately (port 8000 would be taken).
 3. Press **Start**, speak (3 s), then **hold X** (deadman, `/autonomous_enable`):
    the car only moves while X is held. **Back** stops the search.
 
