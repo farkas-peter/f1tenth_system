@@ -44,7 +44,7 @@ touch "$PKG_DIR/.venv/COLCON_IGNORE" "$PKG_DIR/.uv-python/COLCON_IGNORE"
 # 4. Checks
 step "Checks"
 [ -f "$PKG_DIR/gemini_pkg/.env" ] || warn "missing $PKG_DIR/gemini_pkg/.env (GEMINI_API_KEY=...)"
-[ -f "$PKG_DIR/gemini_pkg/yolo26s.pt" ] || warn "missing $PKG_DIR/gemini_pkg/yolo26s.pt (YOLO model)"
+[ -f "$PKG_DIR/gemini_pkg/yolo26s.pt" ] || echo "yolo26s.pt not found: Ultralytics downloads it on the first node start (needs internet)"
 python3 -c "import cv2, sounddevice, scipy, tqdm, requests, pyrealsense2, ultralytics; cv2.legacy.TrackerCSRT_create" \
     && echo "System Python imports OK" || warn "some system Python imports failed (see above)"
 "$PKG_DIR/.venv/bin/python" -c "import google.genai, dotenv, fastapi, uvicorn, pydantic, PIL, cv2, numpy" \

@@ -3,3 +3,4 @@ gemini_pkg/.venv/
 gemini_pkg/.uv-python/
 __pycache__/
 *.wav
+gemini_pkg/gemini_pkg/yolo26s.pt
