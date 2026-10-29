@@ -32,6 +32,7 @@ class SpeechToSearch(Node):
         self.search_steering = self.declare_parameter('search_steering', 0.3).value   # rad
         self.phase_duration = self.declare_parameter('phase_duration', 2.0).value     # s
         self.confirm_frames = self.declare_parameter('confirm_frames', 3).value
+        self.center_tolerance = self.declare_parameter('center_tolerance', 0.15).value  # +- fraction of image width
         self.publish_img = self.declare_parameter('publish_img', False).value
         self.stream = self.declare_parameter('stream', True).value                  # browser camera stream
         self.stream_port = self.declare_parameter('stream_port', 8080).value
@@ -95,7 +96,16 @@ class SpeechToSearch(Node):
         results = self.model(color_image, classes=[self.target_class_id], conf=self.conf, verbose=False)
         boxes = results[0].boxes
 
+        # Only count the detection if the object is horizontally around the middle of the image (car faces it)
+        width = color_image.shape[1]
+        band = self.center_tolerance * width
+        centered = False
         if boxes is not None and len(boxes) > 0:
+            best = int(boxes.conf.argmax().item())
+            x1, y1, x2, y2 = map(int, boxes.xyxy[best].cpu().numpy())
+            centered = abs((x1 + x2) / 2 - width / 2) <= band
+
+        if centered:
             self.detection_count += 1
         else:
             self.detection_count = 0
@@ -104,15 +114,16 @@ class SpeechToSearch(Node):
             # Object found: stop the search movement
             self.state = "FOUND"
             self.publish_drive(0.0, 0.0)
-            best = int(boxes.conf.argmax().item())
-            x1, y1, x2, y2 = map(int, boxes.xyxy[best].cpu().numpy())
             self.get_logger().info(f"FOUND {self.model.names[self.target_class_id]} | "
                                    f"conf: {float(boxes.conf[best]):.2f} | bbox: {(x1, y1, x2, y2)}")
         else:
             speed, steering = self.search_command()
             self.publish_drive(speed, steering)
 
+        # Draw the centre band on the image
         annotated_image = results[0].plot()
+        for x in (int(width / 2 - band), int(width / 2 + band)):
+            cv2.line(annotated_image, (x, 0), (x, annotated_image.shape[0]), (0, 255, 255), 2)
         if self.streamer:
             self.streamer.update(annotated_image)
 

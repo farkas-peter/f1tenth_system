@@ -100,8 +100,9 @@ ros2 run joy joy_node
 Say e.g. "let's find the mobile phone": Gemini turns the audio into one YOLO (COCO)
 class name (`cell phone`), then YOLO (`yolo26s.pt`, only that class) runs on the
 RealSense image while the car searches with a back-and-forth movement (backward with
-steering one way, forward with steering the other way). When the object is seen in
-`confirm_frames` consecutive frames, the car stops.
+steering one way, forward with steering the other way). When the object is seen
+around the horizontal middle of the image (within `center_tolerance`, the yellow lines
+on the stream) in `confirm_frames` consecutive frames, the car stops: it faces the object.
 
 1. Gemini server (same as above).
 2. ```bash
@@ -111,7 +112,8 @@ steering one way, forward with steering the other way). When the object is seen 
    the car only moves while X is held. **Back** stops the search.
 
 Parameters: `model_path`, `conf`, `search_speed` (m/s), `search_steering` (rad),
-`phase_duration` (s), `confirm_frames`, `publish_img` (annotated image on
+`phase_duration` (s), `confirm_frames`, `center_tolerance` (+- fraction of image width,
+default `0.15`), `publish_img` (annotated image on
 `/search/detection/image`).
 
 ### Camera stream in the browser
