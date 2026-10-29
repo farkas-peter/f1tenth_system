@@ -17,6 +17,7 @@ from sensor_msgs.msg import Image as ROSImage
 from cv_bridge import CvBridge
 
 from .webcam_audio_rec import record_webcam_audio
+from .mjpeg_streamer import MjpegStreamer
 
 
 class SpeechToSearch(Node):
@@ -32,6 +33,8 @@ class SpeechToSearch(Node):
         self.phase_duration = self.declare_parameter('phase_duration', 2.0).value     # s
         self.confirm_frames = self.declare_parameter('confirm_frames', 3).value
         self.publish_img = self.declare_parameter('publish_img', False).value
+        self.stream = self.declare_parameter('stream', True).value                  # browser camera stream
+        self.stream_port = self.declare_parameter('stream_port', 8080).value
 
         # Initialize variables
         self.state = "IDLE"  # IDLE -> SEARCHING -> FOUND
@@ -64,6 +67,12 @@ class SpeechToSearch(Node):
         self.timer = self.create_timer(0.033, self.camera_callback)  # 30 FPS
         self.bridge = CvBridge()
 
+        # Browser camera stream
+        self.streamer = None
+        if self.stream:
+            self.streamer = MjpegStreamer(port=self.stream_port)
+            self.get_logger().info(f"Camera stream on http://<car-ip>:{self.stream_port}/")
+
         self.get_logger().info("SpeechToSearch node started.")
         self.get_logger().info(f"Available YOLO classes ({len(self.model.names)}): "
                                f"{', '.join(self.model.names.values())}")
@@ -78,6 +87,8 @@ class SpeechToSearch(Node):
 
         if self.state != "SEARCHING":
             self.publish_drive(0.0, 0.0)
+            if self.streamer:
+                self.streamer.update(color_image)
             return
 
         # Run YOLO only for the wanted class
@@ -101,8 +112,12 @@ class SpeechToSearch(Node):
             speed, steering = self.search_command()
             self.publish_drive(speed, steering)
 
+        annotated_image = results[0].plot()
+        if self.streamer:
+            self.streamer.update(annotated_image)
+
         if self.publish_img:
-            small_image = cv2.resize(results[0].plot(), (424, 240), interpolation=cv2.INTER_AREA)
+            small_image = cv2.resize(annotated_image, (424, 240), interpolation=cv2.INTER_AREA)
             ros_img = self.bridge.cv2_to_imgmsg(small_image, encoding='bgr8')
             self.image_pub.publish(ros_img)
 
@@ -188,6 +203,8 @@ class SpeechToSearch(Node):
 
     def shutdown(self):
         self.pipeline.stop()
+        if self.streamer:
+            self.streamer.shutdown()
         self.get_logger().info("SpeechToSearch node stopped.")
 
 

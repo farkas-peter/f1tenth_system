@@ -6,7 +6,6 @@
 set -e
 
 PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROS_DISTRO="${ROS_DISTRO:-foxy}"
 SUDO=""
 [ "$(id -u)" -ne 0 ] && SUDO="sudo"
 
@@ -17,8 +16,6 @@ warn() { echo -e "\033[1;33mWARNING: $1\033[0m"; }
 step "apt packages"
 $SUDO apt-get update -qq
 $SUDO apt-get install -y libportaudio2
-$SUDO apt-get install -y "ros-${ROS_DISTRO}-web-video-server" \
-    || warn "ros-${ROS_DISTRO}-web-video-server not installed (only needed for the browser camera stream)"
 
 # 2. System Python 3.8 extras for the ROS nodes (not persistent)
 step "pip3 --user packages (ROS node side)"

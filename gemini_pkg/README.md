@@ -17,7 +17,7 @@ All commands below run **inside the container**.
 
 ## Setup
 
-Steps 1, 3 and 4 below (plus `web_video_server`) are done by one script, safe to
+Steps 1, 3 and 4 below are done by one script, safe to
 re-run after every container restart:
 
 ```bash
@@ -113,6 +113,12 @@ steering one way, forward with steering the other way). When the object is seen 
 Parameters: `model_path`, `conf`, `search_speed` (m/s), `search_steering` (rad),
 `phase_duration` (s), `confirm_frames`, `publish_img` (annotated image on
 `/search/detection/image`).
+
+### Camera stream in the browser
+
+The node serves what the camera sees as an MJPEG stream (424x240, YOLO boxes drawn
+while searching): open `http://<car-ip>:8080/` in a browser on the same network.
+Parameters: `stream` (default `true`), `stream_port` (default `8080`).
 
 ## Tools
 
