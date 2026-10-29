@@ -11,6 +11,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool
 from sensor_msgs.msg import Joy
+from nav_msgs.msg import Odometry
 from ackermann_msgs.msg import AckermannDriveStamped
 
 from sensor_msgs.msg import Image as ROSImage
@@ -28,9 +29,12 @@ class SpeechToSearch(Node):
         default_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), "yolo26s.pt")
         self.model_path = self.declare_parameter('model_path', default_model).value
         self.conf = self.declare_parameter('conf', 0.5).value
-        self.search_speed = self.declare_parameter('search_speed', 0.5).value         # m/s
+        self.search_speed = self.declare_parameter('search_speed', 0.7).value         # m/s
         self.search_steering = self.declare_parameter('search_steering', 0.3).value   # rad
         self.phase_duration = self.declare_parameter('phase_duration', 2.0).value     # s
+        self.kick_speed = self.declare_parameter('kick_speed', 1.5).value             # m/s, burst to get moving
+        self.kick_max_duration = self.declare_parameter('kick_max_duration', 1.0).value  # s, safety limit
+        self.kick_until = self.declare_parameter('kick_until', 0.9).value             # fraction of search_speed to reach
         self.confirm_frames = self.declare_parameter('confirm_frames', 3).value
         self.center_tolerance = self.declare_parameter('center_tolerance', 0.15).value  # +- fraction of image width
         self.publish_img = self.declare_parameter('publish_img', False).value
@@ -43,6 +47,9 @@ class SpeechToSearch(Node):
         self.detection_count = 0
         self.phase = "BACKWARD"
         self.phase_start_time = time.monotonic()
+        self.kick_start_time = time.monotonic()
+        self.kicking = True
+        self.odom_speed = 0.0
         self.enabled = False
         self.last_joy_time = 0.0
         self.busy = False
@@ -63,6 +70,7 @@ class SpeechToSearch(Node):
         # ROS2 variables
         self.joy_sub = self.create_subscription(Joy, '/joy', self.joy_callback, 10)
         self.enable_sub = self.create_subscription(Bool, '/autonomous_enable', self.enable_callback, 10)
+        self.odom_sub = self.create_subscription(Odometry, '/odom', self.odom_callback, 10)
         self.drive_pub = self.create_publisher(AckermannDriveStamped, '/drive', 10)
         self.image_pub = self.create_publisher(ROSImage, '/search/detection/image', 1)
         self.timer = self.create_timer(0.033, self.camera_callback)  # 30 FPS
@@ -137,10 +145,28 @@ class SpeechToSearch(Node):
         if time.monotonic() - self.phase_start_time >= self.phase_duration:
             self.phase = "FORWARD" if self.phase == "BACKWARD" else "BACKWARD"
             self.phase_start_time = time.monotonic()
+            self.start_kick()
+
+        # The motor needs extra power to start from standstill, so kick with a higher speed
+        # until odom shows the car close to search speed in the wanted direction (or the safety limit is reached)
+        direction = -1.0 if self.phase == "BACKWARD" else 1.0
+        if self.kicking:
+            moving = direction * self.odom_speed >= self.kick_until * self.search_speed
+            timed_out = time.monotonic() - self.kick_start_time >= self.kick_max_duration
+            if moving or timed_out:
+                self.kicking = False
+        speed = self.kick_speed if self.kicking else self.search_speed
 
         if self.phase == "BACKWARD":
-            return -self.search_speed, self.search_steering
-        return self.search_speed, -self.search_steering
+            return -speed, self.search_steering
+        return speed, -self.search_steering
+
+    def start_kick(self):
+        self.kicking = True
+        self.kick_start_time = time.monotonic()
+
+    def odom_callback(self, msg):
+        self.odom_speed = msg.twist.twist.linear.x
 
     def publish_drive(self, speed, steering):
         # Only move while the autonomous enable button (X) is held and the joystick is alive
@@ -154,6 +180,9 @@ class SpeechToSearch(Node):
 
     def enable_callback(self, msg):
         # joy_teleop sends True when X is pressed and False when it is released
+        if msg.data and not self.enabled:
+            # Car was stopped, so kick again when X is pressed
+            self.start_kick()
         self.enabled = msg.data
 
     def joy_callback(self, msg):
@@ -193,6 +222,7 @@ class SpeechToSearch(Node):
             self.detection_count = 0
             self.phase = "BACKWARD"
             self.phase_start_time = time.monotonic()
+            self.start_kick()
             self.state = "SEARCHING"
             self.get_logger().info(f"SEARCHING: {target_class}")
 
