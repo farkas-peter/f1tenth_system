@@ -25,7 +25,7 @@ def put_status(img, text, y=30, color=(0, 255, 0)):
     cv2.putText(img, text, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2, cv2.LINE_AA)
 
 def main():
-    cap = cv2.VideoCapture(2)
+    cap = cv2.VideoCapture(4)
     time.sleep(0.5) # Warm up camera
 
     if not cap.isOpened():
