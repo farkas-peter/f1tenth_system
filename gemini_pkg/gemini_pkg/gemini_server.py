@@ -16,6 +16,13 @@ class ObjectInfo(BaseModel):
     description: str
     bb_list: list[list[int]]
 
+class ClassInput(BaseModel):
+    audio_path: str
+    class_names: list[str]
+
+class ClassOutput(BaseModel):
+    target_class: str
+
 def decode_base64_to_pil(base64_str: str) -> Image.Image:
     # Remove header if base64 has a prefix like "data:image/png;base64,..."
     if "," in base64_str:
@@ -41,6 +48,14 @@ def run_agent_pipeline(data: PipelineInput):
     obj_desc, bbs = agent.run_pipeline(data.audio_path, pil_img)
 
     return ObjectInfo(description = obj_desc, bb_list=bbs)
+
+@app.post("/audio_to_class", response_model=ClassOutput)
+def audio_to_class(data: ClassInput):
+    print("Processing audio:", data.audio_path)
+
+    target_class = agent.get_target_class_from_audio(data.audio_path, data.class_names)
+
+    return ClassOutput(target_class=target_class)
 
 
 if __name__ == "__main__":

@@ -84,6 +84,36 @@ class GeminiAgent:
 
         return response.text
 
+    def get_target_class_from_audio(self, audio_filepath, class_names):
+        # Get the YOLO class name of the wanted object from an audio file using Gemini
+        prompt = f"""
+        You control an autonomous vehicle that uses a YOLO object detection model.
+        Task: Process the provided audio file (it can be in Hungarian or English) and find the object the user wants the vehicle to find.
+        Return that object as exactly one of the YOLO class names below, e.g. 'telefon' or 'mobile phone' -> 'cell phone', 'palack' -> 'bottle', 'szék' -> 'chair'.
+        If none of the class names fits, return 'none'.
+        Answer as JSON: {{"target": "<class name>"}}
+        YOLO class names: {", ".join(class_names)}
+        """
+
+        audio_filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), audio_filepath)
+        with open(audio_filepath, 'rb') as f:
+            audio_bytes = f.read()
+
+        config = types.GenerateContentConfig(response_mime_type="application/json")
+        response = self.client.models.generate_content(
+            model=self.gemini_model,
+            contents=[prompt,
+                      types.Part.from_bytes(data=audio_bytes, mime_type='audio/wav')
+                      ],
+            config=config
+        )
+
+        print("Target class from audio:", response.text)
+
+        # Only accept valid class names
+        target = json.loads(response.text).get("target", "none").strip()
+        return target if target in class_names else "none"
+
     def run_pipeline(self, audio_filepath: str, image: Image.Image):
         # Run the full pipeline: audio -> object description -> camera image -> object detection
         obj_description = self.get_obj_desc_from_audio(audio_filepath)

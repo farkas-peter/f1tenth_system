@@ -1,1 +1,3 @@
 gemini_pkg/gemini_pkg/.env
+gemini_pkg/.venv/
+gemini_pkg/.uv-python/

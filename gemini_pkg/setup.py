@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'speech_to_obj_node = gemini_pkg.speech_to_obj_node:main'
+            'speech_to_obj_node = gemini_pkg.speech_to_obj_node:main',
+            'speech_to_search_node = gemini_pkg.speech_to_search_node:main'
         ],
     },
 )

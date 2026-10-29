@@ -1,0 +1,9 @@
+# Gemini server venv (Python 3.12) - see README.md
+google-genai
+python-dotenv
+fastapi
+uvicorn
+pydantic
+pillow
+opencv-python-headless
+numpy
