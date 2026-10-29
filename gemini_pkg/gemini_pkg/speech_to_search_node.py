@@ -42,10 +42,11 @@ class SpeechToSearch(Node):
         self.stream_port = self.declare_parameter('stream_port', 8080).value
 
         # Initialize variables
-        self.state = "IDLE"  # IDLE -> SEARCHING -> FOUND
+        self.state = "IDLE"  # IDLE -> SEARCHING -> TRACKING
         self.status = "Press Start to give a voice command"  # shown on the camera image
         self.target_class_id = None
         self.detection_count = 0
+        self.tracker = None
         self.phase = "BACKWARD"
         self.phase_start_time = time.monotonic()
         self.kick_start_time = time.monotonic()
@@ -95,6 +96,11 @@ class SpeechToSearch(Node):
 
         color_image = np.asanyarray(color_frame.get_data())
 
+        if self.state == "TRACKING":
+            self.publish_drive(0.0, 0.0)
+            self.track(color_image)
+            return
+
         if self.state != "SEARCHING":
             self.publish_drive(0.0, 0.0)
             self.publish_image(color_image.copy())
@@ -119,12 +125,14 @@ class SpeechToSearch(Node):
             self.detection_count = 0
 
         if self.detection_count >= self.confirm_frames:
-            # Object found: stop the search movement
-            self.state = "FOUND"
-            self.status = f"Found: {self.model.names[self.target_class_id]}"
+            # Object found: stop the search movement and keep following it with the CSRT tracker
             self.publish_drive(0.0, 0.0)
             self.get_logger().info(f"FOUND {self.model.names[self.target_class_id]} | "
                                    f"conf: {float(boxes.conf[best]):.2f} | bbox: {(x1, y1, x2, y2)}")
+            self.tracker = cv2.legacy.TrackerCSRT_create()
+            self.tracker.init(color_image, (x1, y1, x2 - x1, y2 - y1))  # bbox = (x, y, w, h)
+            self.state = "TRACKING"
+            self.status = f"Tracking: {self.model.names[self.target_class_id]}"
         else:
             speed, steering = self.search_command()
             self.publish_drive(speed, steering)
@@ -134,6 +142,22 @@ class SpeechToSearch(Node):
         for x in (int(width / 2 - band), int(width / 2 + band)):
             cv2.line(annotated_image, (x, 0), (x, annotated_image.shape[0]), (0, 255, 255), 2)
         self.publish_image(annotated_image)
+
+    def track(self, color_image):
+        ok, bbox = self.tracker.update(color_image)
+        image = color_image.copy()
+
+        if ok:
+            x, y, w, h = map(int, bbox)
+            cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        else:
+            target_class = self.model.names[self.target_class_id]
+            self.get_logger().info(f"Tracking lost: {target_class}")
+            self.tracker = None
+            self.state = "IDLE"
+            self.status = f"Lost {target_class}, press Start to search again"
+
+        self.publish_image(image)
 
     def publish_image(self, image):
         # Write the current status in a dark bar at the top of the image
@@ -208,6 +232,7 @@ class SpeechToSearch(Node):
         if self.prev_back_button == 0 and back_now == 1:
             self.get_logger().info("BACK: Stopping search.")
             self.state = "IDLE"
+            self.tracker = None
             self.status = "Stopped, press Start to give a voice command"
 
         self.prev_back_button = back_now
