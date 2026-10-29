@@ -43,6 +43,7 @@ class SpeechToSearch(Node):
 
         # Initialize variables
         self.state = "IDLE"  # IDLE -> SEARCHING -> FOUND
+        self.status = "Press Start to give a voice command"  # shown on the camera image
         self.target_class_id = None
         self.detection_count = 0
         self.phase = "BACKWARD"
@@ -96,8 +97,7 @@ class SpeechToSearch(Node):
 
         if self.state != "SEARCHING":
             self.publish_drive(0.0, 0.0)
-            if self.streamer:
-                self.streamer.update(color_image)
+            self.publish_image(color_image.copy())
             return
 
         # Run YOLO only for the wanted class
@@ -121,6 +121,7 @@ class SpeechToSearch(Node):
         if self.detection_count >= self.confirm_frames:
             # Object found: stop the search movement
             self.state = "FOUND"
+            self.status = f"Found: {self.model.names[self.target_class_id]}"
             self.publish_drive(0.0, 0.0)
             self.get_logger().info(f"FOUND {self.model.names[self.target_class_id]} | "
                                    f"conf: {float(boxes.conf[best]):.2f} | bbox: {(x1, y1, x2, y2)}")
@@ -132,11 +133,18 @@ class SpeechToSearch(Node):
         annotated_image = results[0].plot()
         for x in (int(width / 2 - band), int(width / 2 + band)):
             cv2.line(annotated_image, (x, 0), (x, annotated_image.shape[0]), (0, 255, 255), 2)
+        self.publish_image(annotated_image)
+
+    def publish_image(self, image):
+        # Write the current status in a dark bar at the top of the image
+        cv2.rectangle(image, (0, 0), (image.shape[1], 40), (0, 0, 0), -1)
+        cv2.putText(image, self.status, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
+
         if self.streamer:
-            self.streamer.update(annotated_image)
+            self.streamer.update(image)
 
         if self.publish_img:
-            small_image = cv2.resize(annotated_image, (424, 240), interpolation=cv2.INTER_AREA)
+            small_image = cv2.resize(image, (424, 240), interpolation=cv2.INTER_AREA)
             ros_img = self.bridge.cv2_to_imgmsg(small_image, encoding='bgr8')
             self.image_pub.publish(ros_img)
 
@@ -200,21 +208,25 @@ class SpeechToSearch(Node):
         if self.prev_back_button == 0 and back_now == 1:
             self.get_logger().info("BACK: Stopping search.")
             self.state = "IDLE"
+            self.status = "Stopped, press Start to give a voice command"
 
         self.prev_back_button = back_now
 
     def run_speech_to_class(self):
         try:
             # Record audio from webcam
+            self.status = "Listening..."
             audio_path = record_webcam_audio(duration=3, filename="temp_audio.wav")
 
             # Call Gemini agent server to get the wanted YOLO class
+            self.status = "Processing voice command..."
             target_class = self.call_gemini_agent(audio_path, list(self.model.names.values()))
             self.get_logger().info(f"Answer from Gemini: {target_class}")
 
             class_ids = [i for i, name in self.model.names.items() if name == target_class]
             if not class_ids:
                 self.get_logger().warn(f"'{target_class}' is not a YOLO class, not searching.")
+                self.status = f"Unknown object '{target_class}', press Start to try again"
                 return
 
             # Start searching
@@ -224,10 +236,12 @@ class SpeechToSearch(Node):
             self.phase_start_time = time.monotonic()
             self.start_kick()
             self.state = "SEARCHING"
+            self.status = f"Searching for: {target_class}"
             self.get_logger().info(f"SEARCHING: {target_class}")
 
         except Exception as e:
             self.get_logger().error(f'Error in audio worker: {e}')
+            self.status = "Error, press Start to try again"
 
         finally:
             self.busy = False
