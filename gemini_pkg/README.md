@@ -102,7 +102,7 @@ class name (`cell phone`), then YOLO (`yolo26s.pt`, only that class) runs on the
 RealSense image while the car searches with a back-and-forth movement (backward with
 steering one way, forward with steering the other way). When the object is seen
 around the horizontal middle of the image (within `center_tolerance`, the yellow lines
-on the stream) in `confirm_frames` consecutive frames, the car stops: it faces the object.
+on the stream), the car stops: it faces the object.
 
 1. ```bash
    ros2 launch f1tenth_stack gemini_search_launch.py
@@ -112,11 +112,21 @@ on the stream) in `confirm_frames` consecutive frames, the car stops: it faces t
    `gemini_pkg_dir:=<path>`), so don't start it separately (port 8000 would be taken).
 3. Press **Start**, speak (3 s), then **hold X** (deadman, `/autonomous_enable`):
    the car only moves while X is held. **Back** stops the search.
+4. Once the object is found the CSRT tracker follows it (car stands still). **Hold RB**
+   (together with X) to approach it: the bbox centre is turned into a 3D point with the
+   RealSense depth and published on `/target_point`, like `speech_to_obj_node` does, and
+   the pure pursuit (`cone_pkg`) drives there. The car stops within `stop_distance` of the
+   object, when RB is released, or when the tracking is lost.
+
+   Pure pursuit's `/drive` is remapped to `/approach/drive` in the launch file; the node
+   forwards it to `/drive` only while approaching, so the search movement and pure pursuit
+   never fight. Approach speed is pure pursuit's (2 m/s, D-pad up/down changes it).
 
 Parameters: `model_path`, `conf`, `search_speed` (m/s), `search_steering` (rad),
-`phase_duration` (s), `confirm_frames`, `center_tolerance` (+- fraction of image width,
+`phase_duration` (s), `center_tolerance` (+- fraction of image width,
 default `0.15`), `publish_img` (annotated image on
-`/search/detection/image`).
+`/search/detection/image`), `approach_button` (joystick button index, default `5` = RB),
+`stop_distance` (m, default `0.7`).
 
 ### Camera stream in the browser
 

@@ -145,10 +145,13 @@ def generate_launch_description():
         executable='drive_publisher',
         name='drive_publisher_node'
     )
+    # drives towards /target_point while approaching; speech_to_search_node forwards
+    # /approach/drive to /drive only while RB is held, so it is the only node on /drive
     pure_pursuit_control_node = Node(
         package='cone_pkg',
         executable='pure_pursuit_control',
-        name='pure_pursuit_control_node'
+        name='pure_pursuit_control_node',
+        remappings=[('/drive', '/approach/drive')]
     )
     intel_yolo_node = Node(
         package='cone_pkg',
@@ -189,6 +192,7 @@ def generate_launch_description():
     ld.add_action(vesc_to_odom_node)
     ld.add_action(vesc_driver_node)
     ld.add_action(ackermann_mux_node)
+    ld.add_action(pure_pursuit_control_node)
     ld.add_action(gemini_server)
     ld.add_action(speech_to_search_node)
 
